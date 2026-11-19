@@ -16,12 +16,14 @@ export default function AdminLive({ room, onExitRoom }) {
   const [showRosterDrawer, setShowRosterDrawer] = useState(false);
 
   const presetCues = [
-    { label: 'Chorus', color: 'from-amber-500 to-orange-500' },
-    { label: 'Chorus 2x', color: 'from-amber-600 to-red-600' },
-    { label: 'Bridge', color: 'from-purple-500 to-indigo-500' },
-    { label: 'Verse 1', color: 'from-blue-500 to-cyan-500' },
-    { label: 'Key Change +1', color: 'from-rose-500 to-pink-500' },
-    { label: 'Free Worship', color: 'from-emerald-500 to-teal-500' },
+    { label: 'Praise 1', color: 'from-amber-500 to-yellow-500' },
+    { label: 'Praise 2', color: 'from-amber-600 to-orange-500' },
+    { label: 'Worship 1', color: 'from-cyan-500 to-blue-500' },
+    { label: 'Worship 2', color: 'from-blue-500 to-indigo-500' },
+    { label: 'Worship 3', color: 'from-indigo-500 to-purple-500' },
+    { label: 'Worship 4', color: 'from-purple-500 to-fuchsia-500' },
+    { label: 'Chorus', color: 'from-emerald-500 to-teal-500' },
+    { label: 'Bridge', color: 'from-rose-500 to-pink-500' },
     { label: 'Fade / End', color: 'from-slate-600 to-slate-700' },
   ];
 

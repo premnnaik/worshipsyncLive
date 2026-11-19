@@ -1,19 +1,48 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Search, ArrowLeft, ArrowRight, ChevronDown, Play, Pause, 
-  Maximize2, Minimize2, Share2, Music, Check, Sparkles, Send, X, AlertCircle
+  Maximize2, Minimize2, Share2, Music, Check, Sparkles, Send, X, AlertCircle, Radio
 } from 'lucide-react';
 import { useWakeLock } from '../hooks/useWakeLock';
 import { 
   calculateSemitoneShift, 
   transposeChordLine, 
   isChordLine, 
-  isMinorKey 
+  isMinorKey,
+  detectSongKey,
+  shouldUseFlatScale
 } from '../utils/musicTransposer';
 
-// Major and Minor Key lists matching Image 1 & 2
-const MAJOR_KEYS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-const MINOR_KEYS = ['Cm', 'C#m', 'Dm', 'D#m', 'Em', 'Fm', 'F#m', 'Gm', 'G#m', 'Am', 'A#m', 'Bm'];
+// Major and Minor Key lists supporting standard worship keys and enharmonics
+const MAJOR_KEYS = [
+  { value: 'C', display: 'C' },
+  { value: 'Db', display: 'Db / C#' },
+  { value: 'D', display: 'D' },
+  { value: 'Eb', display: 'Eb / D#' },
+  { value: 'E', display: 'E' },
+  { value: 'F', display: 'F' },
+  { value: 'F#', display: 'F# / Gb' },
+  { value: 'G', display: 'G' },
+  { value: 'Ab', display: 'Ab / G#' },
+  { value: 'A', display: 'A' },
+  { value: 'Bb', display: 'Bb / A#' },
+  { value: 'B', display: 'B' }
+];
+
+const MINOR_KEYS = [
+  { value: 'Cm', display: 'Cm' },
+  { value: 'C#m', display: 'C#m / Dbm' },
+  { value: 'Dm', display: 'Dm' },
+  { value: 'Ebm', display: 'Ebm / D#m' },
+  { value: 'Em', display: 'Em' },
+  { value: 'Fm', display: 'Fm' },
+  { value: 'F#m', display: 'F#m / Gbm' },
+  { value: 'Gm', display: 'Gm' },
+  { value: 'Abm', display: 'Abm / G#m' },
+  { value: 'Am', display: 'Am' },
+  { value: 'Bbm', display: 'Bbm / A#m' },
+  { value: 'Bm', display: 'Bm' }
+];
 
 export default function StageView({
   currentSong,
@@ -21,6 +50,7 @@ export default function StageView({
   room,
   allSongs = [],
   activeCue,
+  onClearCue,
   suggestedSongAlert,
   onDismissSuggestion,
   onQuickEdit,
@@ -87,8 +117,8 @@ export default function StageView({
 
   // DEFAULT FONT SIZE = 18 as requested!
   const [fontSize, setFontSize] = useState(18);
-  // Default chords OFF when joining/opening; user turns it ON if desired!
-  const [showChords, setShowChords] = useState(false);
+  // Default chords ON for musicians / keyboardists / admin; clean lyrics for singers/sound!
+  const [showChords, setShowChords] = useState(!isSingerOrSound);
   const [isFullScreen, setIsFullScreen] = useState(false);
 
   // Recently opened songs for the Downside Box
@@ -219,13 +249,13 @@ export default function StageView({
 
   // Calculate dynamic transposition semitone shift
   // Original base chord in song object vs current chosen target chord
-  const originalBaseChord = (currentSong?.chords || 'Cm').trim();
-  const currentTargetChord = (chordsInput || originalBaseChord).trim();
+  const originalBaseChord = (currentSong?.originalKey || detectSongKey(currentSong) || 'Em').trim();
+  const currentTargetChord = (chordsInput || currentSong?.chords || originalBaseChord).trim();
   const semitoneShift = calculateSemitoneShift(originalBaseChord, currentTargetChord);
 
   // Check if current chord is Minor or Major for the Transpose Dropdown
-  const activeChordIsMinor = isMinorKey(currentTargetChord);
-  // Major Key -> Only Major Chords (C, C#, D, D# ...); Minor Key -> Only Minor Chords (Cm, C#m, Dm ...)
+  const activeChordIsMinor = isMinorKey(currentTargetChord) || isMinorKey(originalBaseChord);
+  // Major Key -> Only Major Chords (C, Db, D ...); Minor Key -> Only Minor Chords (Cm, C#m, Dm ...)
   const availableTransposeKeys = activeChordIsMinor ? MINOR_KEYS : MAJOR_KEYS;
 
   // Downside suggested songs list (Recent songs + available live songs, ensuring at least 3 cards always)
@@ -281,7 +311,7 @@ export default function StageView({
         // In singer or sound user, remove chords on lyrics!
         if (isSingerOrSound || !showChords) return null;
         // Dynamically transpose every chord on this line according to chosen key!
-        const transposedLine = transposeChordLine(line, semitoneShift);
+        const transposedLine = transposeChordLine(line, semitoneShift, currentTargetChord);
         return (
           <div key={idx} className="text-rose-400 font-mono font-bold tracking-wider text-sm sm:text-base pt-2.5 pb-0.5 whitespace-pre select-all">
             {transposedLine}
@@ -709,22 +739,27 @@ export default function StageView({
                       <span className="text-indigo-600 font-mono font-black">{currentTargetChord}</span>
                     </div>
                     <div className="max-h-72 overflow-y-auto">
-                      {availableTransposeKeys.map((k) => (
-                        <button
-                          key={k}
-                          onClick={() => handleSaveChords(k)}
-                          className={`w-full py-2.5 px-4 text-left font-sans text-sm font-semibold transition flex items-center justify-between border-b border-slate-100 last:border-none ${
-                            currentTargetChord === k
-                              ? 'bg-slate-100 text-indigo-600 font-bold'
-                              : 'text-slate-900 hover:bg-slate-50'
-                          }`}
-                        >
-                          <span>{k}</span>
-                          {currentTargetChord === k && (
-                            <span className="w-2 h-2 rounded-full bg-indigo-600"></span>
-                          )}
-                        </button>
-                      ))}
+                      {availableTransposeKeys.map((k) => {
+                        const keyVal = typeof k === 'string' ? k : k.value;
+                        const keyDisp = typeof k === 'string' ? k : k.display;
+                        const isSelected = currentTargetChord === keyVal;
+                        return (
+                          <button
+                            key={keyVal}
+                            onClick={() => handleSaveChords(keyVal)}
+                            className={`w-full py-2.5 px-4 text-left font-sans text-sm font-semibold transition flex items-center justify-between border-b border-slate-100 last:border-none ${
+                              isSelected
+                                ? 'bg-indigo-50 text-indigo-600 font-bold'
+                                : 'text-slate-900 hover:bg-slate-50'
+                            }`}
+                          >
+                            <span>{keyDisp}</span>
+                            {isSelected && (
+                              <span className="w-2 h-2 rounded-full bg-indigo-600"></span>
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -733,6 +768,27 @@ export default function StageView({
           </div>
         )}
       </header>
+
+      {/* HIGH-VISIBILITY LIVE STAGE CUE BANNER (Broadcasted to all connected band members) */}
+      {activeCue && (
+        <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-black px-4 py-2 font-black shadow-2xl flex items-center justify-between z-30 animate-pulse border-b-2 border-yellow-300 shrink-0">
+          <div className="flex items-center gap-2 mx-auto">
+            <Radio className="w-4 h-4 text-black animate-spin" />
+            <span className="text-xs sm:text-sm font-black uppercase tracking-widest">
+              STAGE CUE: {activeCue}
+            </span>
+          </div>
+          {user?.isAdmin && onClearCue && (
+            <button 
+              onClick={onClearCue}
+              className="p-1 rounded-full bg-black/20 hover:bg-black/40 text-black active-press transition ml-2"
+              title="Dismiss Active Cue"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Save Notification Toast */}
       {saveToast && (

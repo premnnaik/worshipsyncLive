@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   ArrowLeft, Plus, Search, Music, Sparkles, Clock, Hash, FileText, 
-  Image as ImageIcon, Trash2, Edit3, Check, X, Upload, Zap
+  Image as ImageIcon, Trash2, Edit3, Check, X, Upload, Zap, Globe, Key
 } from 'lucide-react';
 import { getSongs, createSong, updateSong, deleteSong } from '../services/api';
+
+const QUICK_KEYS = ['Em', 'Cm', 'Gm', 'Dm', 'Am', 'G', 'D', 'C', 'F', 'A', 'E', 'Bb'];
 
 export default function SongsSetup({ onBack }) {
   const [songs, setSongs] = useState([]);
@@ -16,12 +18,17 @@ export default function SongsSetup({ onBack }) {
 
   // Form State
   const [title, setTitle] = useState('');
-  const [type, setType] = useState('Worship');
+  const [songNumber, setSongNumber] = useState('');
+  const [category, setCategory] = useState('kannada'); // 'kannada' | 'english'
+  const [type, setType] = useState('Worship'); // 'Worship' | 'Praise'
   const [tempo, setTempo] = useState(72);
   const [styleNumber, setStyleNumber] = useState('');
-  const [chords, setChords] = useState('');
-  const [lyricsMode, setLyricsMode] = useState('text');
-  const [lyricsText, setLyricsText] = useState('');
+  const [chords, setChords] = useState('Em');
+  
+  // Lyrics Mode & Tab
+  const [lyricsTab, setLyricsTab] = useState('kannada'); // 'kannada' | 'english' | 'image'
+  const [kannadaLyrics, setKannadaLyrics] = useState('');
+  const [englishLyrics, setEnglishLyrics] = useState('');
   const [lyricsImage, setLyricsImage] = useState(null);
   const [imageFileName, setImageFileName] = useState('');
   
@@ -47,12 +54,15 @@ export default function SongsSetup({ onBack }) {
 
   const resetForm = () => {
     setTitle('');
+    setSongNumber('');
+    setCategory('kannada');
     setType('Worship');
     setTempo(72);
     setStyleNumber('');
-    setChords('');
-    setLyricsMode('text');
-    setLyricsText('');
+    setChords('Em');
+    setLyricsTab('kannada');
+    setKannadaLyrics('');
+    setEnglishLyrics('');
     setLyricsImage(null);
     setImageFileName('');
     setEditingSong(null);
@@ -61,20 +71,37 @@ export default function SongsSetup({ onBack }) {
 
   const handleOpenAdd = () => {
     resetForm();
+    // Auto suggest next song number
+    const maxNum = songs.reduce((max, s) => {
+      const n = parseInt(s.songNumber, 10);
+      return !isNaN(n) && n > max ? n : max;
+    }, 0);
+    if (maxNum > 0 && maxNum < 500) {
+      setSongNumber(String(maxNum + 1).padStart(2, '0'));
+    }
     setIsFormOpen(true);
   };
 
   const handleEdit = (song) => {
     setEditingSong(song);
-    setTitle(song.title);
+    setTitle(song.title || '');
+    setSongNumber(song.songNumber ? String(song.songNumber) : '');
+    const isEng = song.category === 'english' || song.id?.includes('way-maker') || song.id?.includes('10000');
+    setCategory(isEng ? 'english' : 'kannada');
     setType(song.type || 'Worship');
     setTempo(song.tempo || 72);
     setStyleNumber(song.styleNumber || '');
-    setChords(song.chords || '');
-    setLyricsText(song.lyricsText || '');
+    setChords(song.originalKey || song.chords || 'Em');
+    
+    // Populate Kannada and English lyrics
+    const kLyrics = song.kannadaLyrics || (!isEng ? song.lyricsText : '') || '';
+    const eLyrics = song.englishLyrics || (isEng ? song.lyricsText : '') || '';
+    setKannadaLyrics(kLyrics);
+    setEnglishLyrics(eLyrics);
+
     setLyricsImage(song.lyricsImage || null);
     setImageFileName(song.lyricsImage ? 'Attached Screenshot' : '');
-    setLyricsMode(song.lyricsImage ? 'image' : 'text');
+    setLyricsTab(song.lyricsImage ? 'image' : (isEng ? 'english' : 'kannada'));
     setIsFormOpen(true);
   };
 
@@ -102,7 +129,7 @@ export default function SongsSetup({ onBack }) {
     const reader = new FileReader();
     reader.onload = (event) => {
       setLyricsImage(event.target.result);
-      setLyricsMode('image');
+      setLyricsTab('image');
     };
     reader.readAsDataURL(file);
   };
@@ -140,14 +167,21 @@ export default function SongsSetup({ onBack }) {
     }
 
     setSaving(true);
+    const primaryLyrics = category === 'kannada' ? (kannadaLyrics.trim() || englishLyrics.trim()) : (englishLyrics.trim() || kannadaLyrics.trim());
+    
     const payload = {
       title: title.trim(),
+      songNumber: songNumber.trim(),
+      category,
       type,
       tempo: Number(tempo) || 72,
       styleNumber: styleNumber.trim(),
-      chords: chords.trim(),
-      lyricsText: lyricsMode === 'text' ? lyricsText.trim() : (lyricsText || ''),
-      lyricsImage: lyricsMode === 'image' ? lyricsImage : null
+      chords: chords.trim() || 'Em',
+      originalKey: chords.trim() || 'Em',
+      kannadaLyrics: kannadaLyrics.trim(),
+      englishLyrics: englishLyrics.trim(),
+      lyricsText: primaryLyrics,
+      lyricsImage: lyricsTab === 'image' ? lyricsImage : null
     };
 
     try {
@@ -173,11 +207,17 @@ export default function SongsSetup({ onBack }) {
       const matchesSearch = 
         !q ||
         s.title.toLowerCase().includes(q) ||
-        (s.songNumber && String(s.songNumber).includes(q)) ||
+        (s.songNumber && String(s.songNumber).toLowerCase().includes(q.replace('#', ''))) ||
         (s.chords && s.chords.toLowerCase().includes(q)) ||
         (s.styleNumber && s.styleNumber.toLowerCase().includes(q));
-      const matchesType = filterType === 'ALL' || s.type === filterType;
-      return matchesSearch && matchesType;
+      
+      if (!matchesSearch) return false;
+      if (filterType === 'ALL') return true;
+      if (filterType === 'Praise') return s.type === 'Praise';
+      if (filterType === 'Worship') return s.type === 'Worship';
+      if (filterType === 'Kannada') return !(s.category === 'english' || s.id?.includes('way-maker') || s.id?.includes('10000'));
+      if (filterType === 'English') return (s.category === 'english' || s.id?.includes('way-maker') || s.id?.includes('10000'));
+      return true;
     })
     .sort((a, b) => {
       const aIsEng = a.category === 'english' || a.id?.includes('way-maker') || a.id?.includes('10000');
@@ -198,6 +238,7 @@ export default function SongsSetup({ onBack }) {
             <button
               onClick={onBack}
               className="p-1.5 rounded-lg bg-slate-900 border border-white/10 text-slate-300 active-press"
+              title="Back"
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
@@ -227,23 +268,30 @@ export default function SongsSetup({ onBack }) {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               type="text"
-              placeholder="Search title, chords, style..."
+              placeholder="Search by title, #number, chords, style..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-9 pr-3 py-2 rounded-xl glass-input text-xs text-white placeholder-slate-500 outline-none"
             />
           </div>
 
-          <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-xl border border-white/5">
-            {['ALL', 'Praise', 'Worship'].map((tab) => (
+          {/* Filter tabs */}
+          <div className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-white/5 overflow-x-auto no-scrollbar">
+            {[
+              { id: 'ALL', label: 'All' },
+              { id: 'Worship', label: 'Worship' },
+              { id: 'Praise', label: 'Praise' },
+              { id: 'Kannada', label: 'Kannada' },
+              { id: 'English', label: 'English' }
+            ].map((tab) => (
               <button
-                key={tab}
-                onClick={() => setFilterType(tab)}
-                className={`flex-1 py-1 text-center rounded-lg text-xs font-semibold transition ${
-                  filterType === tab ? 'bg-indigo-600 text-white' : 'text-slate-400'
+                key={tab.id}
+                onClick={() => setFilterType(tab.id)}
+                className={`flex-1 min-w-[62px] py-1 text-center rounded-lg text-xs font-semibold transition shrink-0 ${
+                  filterType === tab.id ? 'bg-indigo-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'
                 }`}
               >
-                {tab === 'ALL' ? 'All Songs' : tab}
+                {tab.label}
               </button>
             ))}
           </div>
@@ -251,24 +299,15 @@ export default function SongsSetup({ onBack }) {
 
         {/* Songs List */}
         {loading ? (
-          <div className="py-16 text-center text-xs text-slate-500">Loading songs library...</div>
+          <div className="py-20 text-center text-slate-500 text-xs">Loading library...</div>
         ) : filteredSongs.length === 0 ? (
-          <div className="text-center py-12 glass-panel rounded-2xl border border-white/5 p-4">
-            <Music className="w-10 h-10 text-slate-600 mx-auto mb-2" />
-            <h3 className="text-sm font-semibold text-slate-300 mb-1">No songs found</h3>
-            <p className="text-xs text-slate-500 mb-4">
-              {search ? 'Try another search keyword' : 'Create your first song for Sunday service'}
-            </p>
-            <button
-              onClick={handleOpenAdd}
-              className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-xs font-bold transition active-press"
-            >
-              Add New Song
-            </button>
+          <div className="py-16 text-center text-slate-500">
+            <Music className="w-10 h-10 mx-auto text-slate-600 mb-2" />
+            <p className="text-xs">No songs found.</p>
           </div>
         ) : (
           <div className="space-y-4">
-            {/* 1. Kannada Songs (A-Z) */}
+            {/* KANNADA SONGS SECTION */}
             {kannadaLibrarySongs.length > 0 && (
               <div>
                 <div className="flex items-center justify-between px-2.5 py-1.5 mb-2 bg-cyan-950/40 border border-cyan-500/30 rounded-xl text-xs font-black font-mono text-cyan-400">
@@ -283,7 +322,7 @@ export default function SongsSetup({ onBack }) {
                       className="p-3.5 rounded-2xl glass-panel hover:glass-panel-elevated border border-white/5 active-press transition cursor-pointer"
                     >
                       <div className="flex items-start justify-between gap-2 mb-1.5">
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <span
                             className={`text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full ${
                               song.type === 'Praise'
@@ -298,6 +337,9 @@ export default function SongsSetup({ onBack }) {
                               #{song.songNumber}
                             </span>
                           )}
+                          <span className="text-[9px] font-mono font-bold text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-white/5">
+                            Kannada
+                          </span>
                         </div>
 
                         <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
@@ -330,15 +372,13 @@ export default function SongsSetup({ onBack }) {
                             Style: {song.styleNumber}
                           </span>
                         )}
-                        {song.chords && (
-                          <span className="px-2 py-0.5 rounded-lg bg-slate-900 text-indigo-300 border border-indigo-500/20 truncate max-w-[140px]">
-                            {song.chords}
-                          </span>
-                        )}
+                        <span className="px-2 py-0.5 rounded-lg bg-slate-900 text-indigo-300 border border-indigo-500/20 font-bold">
+                          Key: {song.originalKey || song.chords || 'Em'}
+                        </span>
                       </div>
 
                       <div className="text-[11px] text-slate-400 truncate">
-                        {song.lyricsText?.slice(0, 70) || song.kannadaLyrics?.slice(0, 70) || 'Lyrics available'}
+                        {song.kannadaLyrics?.split('\n')[1] || song.kannadaLyrics?.slice(0, 70) || song.lyricsText?.slice(0, 70) || 'Lyrics available'}
                       </div>
                     </div>
                   ))}
@@ -346,7 +386,7 @@ export default function SongsSetup({ onBack }) {
               </div>
             )}
 
-            {/* 2. English Songs (A-Z) */}
+            {/* ENGLISH SONGS SECTION */}
             {englishLibrarySongs.length > 0 && (
               <div>
                 <div className="flex items-center justify-between px-2.5 py-1.5 mb-2 bg-amber-950/40 border border-amber-500/30 rounded-xl text-xs font-black font-mono text-amber-400">
@@ -361,7 +401,7 @@ export default function SongsSetup({ onBack }) {
                       className="p-3.5 rounded-2xl glass-panel hover:glass-panel-elevated border border-white/5 active-press transition cursor-pointer"
                     >
                       <div className="flex items-start justify-between gap-2 mb-1.5">
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <span
                             className={`text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full ${
                               song.type === 'Praise'
@@ -376,6 +416,9 @@ export default function SongsSetup({ onBack }) {
                               #{song.songNumber}
                             </span>
                           )}
+                          <span className="text-[9px] font-mono font-bold text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-white/5">
+                            English
+                          </span>
                         </div>
 
                         <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
@@ -408,15 +451,13 @@ export default function SongsSetup({ onBack }) {
                             Style: {song.styleNumber}
                           </span>
                         )}
-                        {song.chords && (
-                          <span className="px-2 py-0.5 rounded-lg bg-slate-900 text-indigo-300 border border-indigo-500/20 truncate max-w-[140px]">
-                            {song.chords}
-                          </span>
-                        )}
+                        <span className="px-2 py-0.5 rounded-lg bg-slate-900 text-indigo-300 border border-indigo-500/20 font-bold">
+                          Key: {song.originalKey || song.chords || 'G'}
+                        </span>
                       </div>
 
                       <div className="text-[11px] text-slate-400 truncate">
-                        {song.lyricsText?.slice(0, 70) || song.englishLyrics?.slice(0, 70) || 'Lyrics available'}
+                        {song.englishLyrics?.split('\n')[1] || song.englishLyrics?.slice(0, 70) || song.lyricsText?.slice(0, 70) || 'Lyrics available'}
                       </div>
                     </div>
                   ))}
@@ -431,10 +472,10 @@ export default function SongsSetup({ onBack }) {
       {isFormOpen && (
         <div className="fixed inset-0 z-50 flex flex-col bg-[#050609] overflow-y-auto pt-safe pb-safe px-4 animate-fadeIn">
           <div className="max-w-md mx-auto w-full my-auto py-4">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-4 pb-2 border-b border-white/10">
               <h2 className="text-lg font-black text-white flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-indigo-400" />
-                {editingSong ? 'Edit Worship Song' : 'New Worship Song'}
+                {editingSong ? 'Edit Song' : 'Add New Song'}
               </h2>
               <button
                 onClick={resetForm}
@@ -445,7 +486,7 @@ export default function SongsSetup({ onBack }) {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-3.5">
-              {/* Title */}
+              {/* Row 1: Title */}
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1">
                   Song Title <span className="text-rose-400">*</span>
@@ -453,121 +494,190 @@ export default function SongsSetup({ onBack }) {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Goodness of God"
+                  placeholder="e.g. Aashrayavu Neene Yesayya"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl glass-input text-white text-sm outline-none font-bold"
                 />
               </div>
 
-              {/* Type Toggle */}
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1">
-                  Type
-                </label>
-                <div className="grid grid-cols-2 gap-2 p-1 bg-slate-900 rounded-xl border border-white/5">
-                  <button
-                    type="button"
-                    onClick={() => setType('Worship')}
-                    className={`py-2 text-xs font-bold rounded-lg transition ${
-                      type === 'Worship' ? 'bg-cyan-600 text-white' : 'text-slate-400'
-                    }`}
-                  >
-                    Worship
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setType('Praise')}
-                    className={`py-2 text-xs font-bold rounded-lg transition ${
-                      type === 'Praise' ? 'bg-amber-600 text-white' : 'text-slate-400'
-                    }`}
-                  >
-                    Praise
-                  </button>
+              {/* Row 2: Song Number (#) & Language Category */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1 flex items-center gap-1">
+                    <Hash className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Song Number (#)</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 1770 / 04"
+                    value={songNumber}
+                    onChange={(e) => setSongNumber(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl glass-input text-cyan-300 font-mono font-bold text-sm outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1 flex items-center gap-1">
+                    <Globe className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Language</span>
+                  </label>
+                  <div className="grid grid-cols-2 gap-1 p-1 bg-slate-900 rounded-xl border border-white/5">
+                    <button
+                      type="button"
+                      onClick={() => setCategory('kannada')}
+                      className={`py-1.5 text-xs font-bold rounded-lg transition ${
+                        category === 'kannada' ? 'bg-cyan-600 text-white' : 'text-slate-400'
+                      }`}
+                    >
+                      Kannada
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCategory('english')}
+                      className={`py-1.5 text-xs font-bold rounded-lg transition ${
+                        category === 'english' ? 'bg-amber-600 text-white' : 'text-slate-400'
+                      }`}
+                    >
+                      English
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              {/* Tempo & Tap Tempo Button for Phone */}
+              {/* Row 3: Type (Worship / Praise) & Chords / Original Key */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1">
+                    Type
+                  </label>
+                  <div className="grid grid-cols-2 gap-1 p-1 bg-slate-900 rounded-xl border border-white/5">
+                    <button
+                      type="button"
+                      onClick={() => setType('Worship')}
+                      className={`py-1.5 text-xs font-bold rounded-lg transition ${
+                        type === 'Worship' ? 'bg-cyan-600 text-white' : 'text-slate-400'
+                      }`}
+                    >
+                      Worship
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setType('Praise')}
+                      className={`py-1.5 text-xs font-bold rounded-lg transition ${
+                        type === 'Praise' ? 'bg-amber-600 text-white' : 'text-slate-400'
+                      }`}
+                    >
+                      Praise
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1 flex items-center gap-1">
+                    <Key className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>Key / Chords</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Em, Cm, G"
+                    value={chords}
+                    onChange={(e) => setChords(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded-xl glass-input text-indigo-300 font-mono text-sm outline-none font-bold"
+                  />
+                  {/* Quick Key Buttons */}
+                  <div className="flex gap-1 overflow-x-auto no-scrollbar pt-1">
+                    {QUICK_KEYS.slice(0, 6).map((k) => (
+                      <button
+                        key={k}
+                        type="button"
+                        onClick={() => setChords(k)}
+                        className={`text-[10px] font-mono px-1.5 py-0.5 rounded border transition shrink-0 ${
+                          chords === k
+                            ? 'bg-indigo-600 text-white border-indigo-400'
+                            : 'bg-slate-900 text-slate-400 border-white/5 hover:text-white'
+                        }`}
+                      >
+                        {k}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 4: Tempo & Style Number */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1">
                     Tempo (BPM)
                   </label>
-                  <input
-                    type="number"
-                    min="30"
-                    max="260"
-                    value={tempo}
-                    onChange={(e) => setTempo(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl glass-input text-emerald-400 font-mono font-extrabold text-lg outline-none text-center"
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      min="30"
+                      max="260"
+                      value={tempo}
+                      onChange={(e) => setTempo(e.target.value)}
+                      className="w-20 px-2 py-2 rounded-xl glass-input text-emerald-400 font-mono font-extrabold text-base outline-none text-center"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleTapTempo}
+                      className="flex-1 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-bold active-press transition flex items-center justify-center gap-1"
+                      title="Tap repeatedly to calculate BPM"
+                    >
+                      <Zap className="w-3 h-3" />
+                      <span>Tap BPM</span>
+                    </button>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1">
-                    Thumb Tap
-                  </label>
-                  <button
-                    type="button"
-                    onClick={handleTapTempo}
-                    className="w-full py-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-bold active-press transition flex items-center justify-center gap-1.5"
-                  >
-                    <Zap className="w-3.5 h-3.5" />
-                    <span>Tap BPM</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Style Number & Chords */}
-              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1">
                     Style Number
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. 084 / 142"
+                    placeholder="e.g. 75 / 42"
                     value={styleNumber}
                     onChange={(e) => setStyleNumber(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl glass-input text-purple-300 font-mono text-sm outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1">
-                    Chords / Key
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Key of E"
-                    value={chords}
-                    onChange={(e) => setChords(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl glass-input text-indigo-300 font-mono text-sm outline-none"
+                    className="w-full px-3.5 py-2.5 rounded-xl glass-input text-purple-300 font-mono text-sm outline-none"
                   />
                 </div>
               </div>
 
-              {/* Lyrics Mode Toggle */}
+              {/* Section 5: Lyrics & Chords Tabs */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="text-[11px] font-bold uppercase tracking-wider text-slate-300">
-                    Lyrics / Chord Chart
+                    Lyrics & Chords
                   </label>
-                  <div className="flex items-center gap-1 p-0.5 bg-slate-900 rounded-lg">
+
+                  {/* Tabs: Kannada Lyrics / English Transliteration / Chord Image */}
+                  <div className="flex items-center gap-1 p-0.5 bg-slate-900 rounded-lg border border-white/5">
                     <button
                       type="button"
-                      onClick={() => setLyricsMode('text')}
-                      className={`px-2 py-0.5 text-xs font-semibold rounded ${
-                        lyricsMode === 'text' ? 'bg-indigo-600 text-white' : 'text-slate-400'
+                      onClick={() => setLyricsTab('kannada')}
+                      className={`px-2 py-0.5 text-xs font-semibold rounded transition ${
+                        lyricsTab === 'kannada' ? 'bg-cyan-600 text-white font-bold' : 'text-slate-400'
                       }`}
                     >
-                      Text
+                      Kannada
                     </button>
                     <button
                       type="button"
-                      onClick={() => setLyricsMode('image')}
-                      className={`px-2 py-0.5 text-xs font-semibold rounded ${
-                        lyricsMode === 'image' ? 'bg-indigo-600 text-white' : 'text-slate-400'
+                      onClick={() => setLyricsTab('english')}
+                      className={`px-2 py-0.5 text-xs font-semibold rounded transition ${
+                        lyricsTab === 'english' ? 'bg-amber-600 text-white font-bold' : 'text-slate-400'
+                      }`}
+                    >
+                      English
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLyricsTab('image')}
+                      className={`px-2 py-0.5 text-xs font-semibold rounded transition ${
+                        lyricsTab === 'image' ? 'bg-indigo-600 text-white font-bold' : 'text-slate-400'
                       }`}
                     >
                       Image
@@ -575,15 +685,35 @@ export default function SongsSetup({ onBack }) {
                   </div>
                 </div>
 
-                {lyricsMode === 'text' ? (
+                {/* Helper hint */}
+                <div className="text-[10px] text-slate-400 mb-1.5 font-mono">
+                  💡 Write chords on their own line above words (e.g. <span className="text-rose-400">Em         D</span>)
+                </div>
+
+                {/* Kannada Lyrics Textarea */}
+                {lyricsTab === 'kannada' && (
                   <textarea
-                    rows="6"
-                    placeholder="Paste lyrics with [Verse 1] and [Chorus]..."
-                    value={lyricsText}
-                    onChange={(e) => setLyricsText(e.target.value)}
-                    className="w-full p-3 rounded-xl glass-input text-white text-xs font-sans leading-relaxed outline-none resize-none"
+                    rows="8"
+                    placeholder={`Em         D\nಆಶ್ರಯವು ನೀನೇ ಯೇಸಯ್ಯ\nC        D         Em\nನನಗಾಧಾರವು ನೀನೇ ಯೇಸಯ್ಯ ||2`}
+                    value={kannadaLyrics}
+                    onChange={(e) => setKannadaLyrics(e.target.value)}
+                    className="w-full p-3 rounded-xl glass-input text-white text-xs font-sans leading-relaxed outline-none resize-none font-medium"
                   />
-                ) : (
+                )}
+
+                {/* English Transliteration Lyrics Textarea */}
+                {lyricsTab === 'english' && (
+                  <textarea
+                    rows="8"
+                    placeholder={`Em         D\nAashrayavu Neene Yesayya\nC        D         Em\nNanagaadhaaraavu Neene Yesayya ||2`}
+                    value={englishLyrics}
+                    onChange={(e) => setEnglishLyrics(e.target.value)}
+                    className="w-full p-3 rounded-xl glass-input text-white text-xs font-sans leading-relaxed outline-none resize-none font-medium"
+                  />
+                )}
+
+                {/* Image Upload Tab */}
+                {lyricsTab === 'image' && (
                   <div>
                     <input
                       type="file"
@@ -606,7 +736,7 @@ export default function SongsSetup({ onBack }) {
                             onClick={() => fileInputRef.current?.click()}
                             className="text-indigo-400 font-bold"
                           >
-                            Replace
+                            Replace Image
                           </button>
                           <button
                             type="button"
@@ -623,18 +753,18 @@ export default function SongsSetup({ onBack }) {
                     ) : (
                       <div
                         onClick={() => fileInputRef.current?.click()}
-                        className="cursor-pointer border-2 border-dashed border-white/15 rounded-xl p-6 text-center bg-slate-900/50 active-press"
+                        className="cursor-pointer border-2 border-dashed border-white/15 rounded-xl p-6 text-center bg-slate-900/50 active-press hover:border-indigo-400/50 transition"
                       >
                         <Upload className="w-6 h-6 text-slate-400 mx-auto mb-1" />
                         <p className="text-xs font-bold text-slate-300">Tap to upload chord chart screenshot</p>
-                        <p className="text-[10px] text-slate-500">PNG, JPG, or screenshot</p>
+                        <p className="text-[10px] text-slate-500">PNG, JPG, or phone screenshot</p>
                       </div>
                     )}
                   </div>
                 )}
               </div>
 
-              {/* Actions */}
+              {/* Action Buttons */}
               <div className="pt-2 flex items-center gap-2">
                 <button
                   type="button"
@@ -648,7 +778,7 @@ export default function SongsSetup({ onBack }) {
                   disabled={saving}
                   className="flex-2 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-xs font-bold shadow-lg shadow-emerald-500/25 active-press"
                 >
-                  {saving ? 'Saving...' : 'Save Song'}
+                  {saving ? 'Saving...' : editingSong ? 'Update Song' : 'Save Song'}
                 </button>
               </div>
             </form>

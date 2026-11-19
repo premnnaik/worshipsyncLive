@@ -343,13 +343,23 @@ app.get('/api/songs', (req, res) => {
 });
 
 app.post('/api/songs', (req, res) => {
-  const { title, songNumber, type, tempo, styleNumber, chords, lyricsText, kannadaLyrics, englishLyrics, lyricsImage } = req.body;
+  const { 
+    title, songNumber, type, tempo, styleNumber, chords, 
+    originalKey, category, lyricsText, kannadaLyrics, englishLyrics, lyricsImage 
+  } = req.body;
   if (!title) {
     return res.status(400).json({ error: 'Song title is required' });
   }
 
   const songs = loadSongs();
   const nextNum = String(songs.length + 1).padStart(2, '0');
+  const songChords = String(chords || '').trim();
+  const songOrigKey = String(originalKey || songChords || 'C').trim();
+  
+  // Auto-detect category if not explicitly given
+  const isKannada = /[\u0C80-\u0CFF]/.test((kannadaLyrics || '') + (lyricsText || ''));
+  const songCat = category ? String(category).toLowerCase() : (isKannada ? 'kannada' : 'english');
+
   const newSong = {
     id: `song-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
     songNumber: songNumber ? String(songNumber).trim() : nextNum,
@@ -357,8 +367,10 @@ app.post('/api/songs', (req, res) => {
     type: type === 'Praise' ? 'Praise' : 'Worship',
     tempo: Number(tempo) || 72,
     styleNumber: String(styleNumber || '').trim(),
-    chords: String(chords || '').trim(),
-    lyricsText: String(lyricsText || '').trim(),
+    chords: songChords || songOrigKey,
+    originalKey: songOrigKey,
+    category: songCat,
+    lyricsText: String(lyricsText || kannadaLyrics || englishLyrics || '').trim(),
     kannadaLyrics: kannadaLyrics || '',
     englishLyrics: englishLyrics || '',
     lyricsImage: lyricsImage || null,
@@ -372,7 +384,10 @@ app.post('/api/songs', (req, res) => {
 
 app.put('/api/songs/:id', (req, res) => {
   const { id } = req.params;
-  const { title, songNumber, type, tempo, styleNumber, chords, lyricsText, kannadaLyrics, englishLyrics, lyricsImage } = req.body;
+  const { 
+    title, songNumber, type, tempo, styleNumber, chords, 
+    originalKey, category, lyricsText, kannadaLyrics, englishLyrics, lyricsImage 
+  } = req.body;
   const songs = loadSongs();
   const index = songs.findIndex(s => s.id === id);
 
@@ -388,6 +403,8 @@ app.put('/api/songs/:id', (req, res) => {
     tempo: tempo !== undefined ? Number(tempo) : songs[index].tempo,
     styleNumber: styleNumber !== undefined ? String(styleNumber).trim() : songs[index].styleNumber,
     chords: chords !== undefined ? String(chords).trim() : songs[index].chords,
+    originalKey: originalKey !== undefined ? String(originalKey).trim() : (songs[index].originalKey || songs[index].chords),
+    category: category !== undefined ? String(category).toLowerCase() : songs[index].category,
     lyricsText: lyricsText !== undefined ? String(lyricsText).trim() : songs[index].lyricsText,
     kannadaLyrics: kannadaLyrics !== undefined ? kannadaLyrics : songs[index].kannadaLyrics,
     englishLyrics: englishLyrics !== undefined ? englishLyrics : songs[index].englishLyrics,
