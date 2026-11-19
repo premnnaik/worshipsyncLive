@@ -865,17 +865,17 @@ export default function StageView({
           <>
             <button
               onClick={handlePrevSong}
-              className="fixed left-2 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-slate-900/80 hover:bg-slate-800 border border-white/10 text-slate-300 flex items-center justify-center shadow-lg active-press backdrop-blur-md"
+              className="fixed left-1 top-1/2 -translate-y-1/2 z-20 w-7 h-7 rounded-full bg-black/40 hover:bg-slate-900/90 border border-white/15 text-white/70 hover:text-white flex items-center justify-center shadow-md active-press backdrop-blur-[2px] opacity-40 hover:opacity-100 transition-all"
               title="Previous Song (Admin Only)"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={handleNextSong}
-              className="fixed right-2 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-slate-900/80 hover:bg-slate-800 border border-white/10 text-slate-300 flex items-center justify-center shadow-lg active-press backdrop-blur-md"
+              className="fixed right-1 top-1/2 -translate-y-1/2 z-20 w-7 h-7 rounded-full bg-black/40 hover:bg-slate-900/90 border border-white/15 text-white/70 hover:text-white flex items-center justify-center shadow-md active-press backdrop-blur-[2px] opacity-40 hover:opacity-100 transition-all"
               title="Next Song (Admin Only)"
             >
-              <ArrowRight className="w-4 h-4" />
+              <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </>
         )}

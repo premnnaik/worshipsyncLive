@@ -1,13 +1,36 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   ArrowLeft, Plus, Search, Music, Sparkles, Clock, Hash, FileText, 
-  Image as ImageIcon, Trash2, Edit3, Check, X, Upload, Zap, Globe, Key
+  Image as ImageIcon, Trash2, Edit3, Check, X, Upload, Zap, Globe, Key, Clipboard
 } from 'lucide-react';
 import { getSongs, createSong, updateSong, deleteSong } from '../services/api';
 import { socket } from '../services/socket';
 import { getKannadaTitle } from '../utils/musicTransposer';
 
 const QUICK_KEYS = ['Em', 'Cm', 'Gm', 'Dm', 'Am', 'G', 'D', 'C', 'F', 'A', 'E', 'Bb'];
+
+// Helper to extract first 3 words of a song from lyrics (skipping chord lines and section tags)
+function extractFirstWords(text, maxWords = 3) {
+  if (!text) return '';
+  for (const rawLine of text.split('\n')) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    // Skip chord lines
+    const isChord = line.split(/\s+/).every(tok => /^[A-G][#b]?(?:m|min|maj|dim|aug|sus|add)?[0-9]*(?:\/[A-G][#b]?)?$/.test(tok));
+    if (isChord) continue;
+    if (line.startsWith('[') && line.endsWith(']')) continue;
+    const cleaned = line
+      .replace(/^\d+[\.\)]\s*/, '')
+      .replace(/\s*\|\|\s*\d+/, '')
+      .replace(/\s*-\s*\d+/, '')
+      .replace(/[,.;:!?]+$/, '')
+      .trim();
+    if (!cleaned) continue;
+    const words = cleaned.split(/\s+/).slice(0, maxWords).join(' ').replace(/[,.;:!?]+$/, '');
+    return words || cleaned;
+  }
+  return '';
+}
 
 export default function SongsSetup({ onBack }) {
   const [songs, setSongs] = useState([]);
@@ -19,8 +42,8 @@ export default function SongsSetup({ onBack }) {
   const [saving, setSaving] = useState(false);
 
   // Form State
-  const [title, setTitle] = useState('');
-  const [kannadaTitle, setKannadaTitle] = useState('');
+  const [customTitle, setCustomTitle] = useState('');
+  const [showCustomTitle, setShowCustomTitle] = useState(false);
   const [songNumber, setSongNumber] = useState('');
   const [category, setCategory] = useState('kannada'); // 'kannada' | 'english'
   const [type, setType] = useState('Worship'); // 'Worship' | 'Praise'
@@ -55,6 +78,36 @@ export default function SongsSetup({ onBack }) {
     };
   }, []);
 
+  // Global clipboard paste listener so user can press Ctrl+V anywhere in the form to paste a screenshot/image
+  useEffect(() => {
+    if (!isFormOpen) return;
+
+    const handleWindowPaste = (e) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (const item of items) {
+        if (item.type && item.type.indexOf('image') !== -1) {
+          const file = item.getAsFile();
+          if (file) {
+            e.preventDefault();
+            const reader = new FileReader();
+            reader.onload = (event) => {
+              setLyricsImage(event.target.result);
+              setImageFileName('Pasted Image ' + new Date().toLocaleTimeString());
+              setLyricsTab('image');
+            };
+            reader.readAsDataURL(file);
+            return;
+          }
+        }
+      }
+    };
+
+    window.addEventListener('paste', handleWindowPaste);
+    return () => window.removeEventListener('paste', handleWindowPaste);
+  }, [isFormOpen]);
+
   const fetchSongsList = async () => {
     setLoading(true);
     try {
@@ -68,8 +121,8 @@ export default function SongsSetup({ onBack }) {
   };
 
   const resetForm = () => {
-    setTitle('');
-    setKannadaTitle('');
+    setCustomTitle('');
+    setShowCustomTitle(false);
     setSongNumber('');
     setCategory('kannada');
     setType('Worship');
@@ -100,8 +153,8 @@ export default function SongsSetup({ onBack }) {
 
   const handleEdit = (song) => {
     setEditingSong(song);
-    setTitle(song.title || '');
-    setKannadaTitle(song.kannadaTitle || getKannadaTitle(song) || '');
+    setCustomTitle(song.title || '');
+    setShowCustomTitle(Boolean(song.title));
     setSongNumber(song.songNumber ? String(song.songNumber) : '');
     const isEng = song.category === 'english' || song.id?.includes('way-maker') || song.id?.includes('10000');
     setCategory(isEng ? 'english' : 'kannada');
@@ -151,6 +204,49 @@ export default function SongsSetup({ onBack }) {
     reader.readAsDataURL(file);
   };
 
+  // Drag and drop image file handler
+  const handleDropImage = (e) => {
+    e.preventDefault();
+    const file = e.dataTransfer?.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      setImageFileName(file.name);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setLyricsImage(event.target.result);
+        setLyricsTab('image');
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Button to paste image from clipboard (for phones and desktop)
+  const handlePasteFromClipboardBtn = async () => {
+    try {
+      if (!navigator.clipboard?.read) {
+        alert('Please press Ctrl+V on your keyboard to paste the screenshot image.');
+        return;
+      }
+      const clipboardItems = await navigator.clipboard.read();
+      for (const item of clipboardItems) {
+        const imageType = item.types.find(t => t.startsWith('image/'));
+        if (imageType) {
+          const blob = await item.getType(imageType);
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            setLyricsImage(event.target.result);
+            setImageFileName('Pasted Screenshot ' + new Date().toLocaleTimeString());
+            setLyricsTab('image');
+          };
+          reader.readAsDataURL(blob);
+          return;
+        }
+      }
+      alert('No screenshot or image found in clipboard. Copy an image first, then tap Paste.');
+    } catch (err) {
+      alert('Clipboard access denied or unsupported on this browser. Please press Ctrl+V on keyboard to paste.');
+    }
+  };
+
   // Mobile Tap Tempo calculation
   const handleTapTempo = () => {
     const now = performance.now();
@@ -176,19 +272,27 @@ export default function SongsSetup({ onBack }) {
     }
   };
 
+  // Auto-derived title from first 3 words of lyrics
+  const autoKannadaName = extractFirstWords(kannadaLyrics, 3);
+  const autoEnglishName = extractFirstWords(englishLyrics, 3);
+  const displayTitle = customTitle.trim() || (category === 'kannada' ? (autoKannadaName || autoEnglishName) : (autoEnglishName || autoKannadaName));
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!title.trim()) {
-      alert('Song title is required.');
-      return;
-    }
+
+    // Auto-detect names from first 3 words of lyrics if not custom set!
+    const derivedKannada = autoKannadaName || autoEnglishName || 'ಆರಾಧನೆ';
+    const derivedEnglish = autoEnglishName || autoKannadaName || (songNumber ? `Song #${songNumber}` : 'Worship Song');
+    
+    const finalKannadaTitle = customTitle.trim() || derivedKannada;
+    const finalTitle = customTitle.trim() || (category === 'kannada' ? (autoEnglishName || autoKannadaName) : derivedEnglish);
 
     setSaving(true);
     const primaryLyrics = category === 'kannada' ? (kannadaLyrics.trim() || englishLyrics.trim()) : (englishLyrics.trim() || kannadaLyrics.trim());
     
     const payload = {
-      title: title.trim(),
-      kannadaTitle: kannadaTitle.trim(),
+      title: finalTitle,
+      kannadaTitle: finalKannadaTitle,
       songNumber: songNumber.trim(),
       category,
       type,
@@ -225,6 +329,7 @@ export default function SongsSetup({ onBack }) {
       const matchesSearch = 
         !q ||
         s.title.toLowerCase().includes(q) ||
+        (s.kannadaTitle && s.kannadaTitle.toLowerCase().includes(q)) ||
         (s.songNumber && String(s.songNumber).toLowerCase().includes(q.replace('#', ''))) ||
         (s.chords && s.chords.toLowerCase().includes(q)) ||
         (s.styleNumber && s.styleNumber.toLowerCase().includes(q));
@@ -493,7 +598,11 @@ export default function SongsSetup({ onBack }) {
 
       {/* Add / Edit Song Full-screen Mobile Drawer */}
       {isFormOpen && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-[#050609] overflow-y-auto pt-safe pb-safe px-4 animate-fadeIn">
+        <div 
+          className="fixed inset-0 z-50 flex flex-col bg-[#050609] overflow-y-auto pt-safe pb-safe px-4 animate-fadeIn"
+          onDrop={handleDropImage}
+          onDragOver={(e) => e.preventDefault()}
+        >
           <div className="max-w-md mx-auto w-full my-auto py-4">
             <div className="flex items-center justify-between mb-4 pb-2 border-b border-white/10">
               <h2 className="text-lg font-black text-white flex items-center gap-2">
@@ -509,47 +618,40 @@ export default function SongsSetup({ onBack }) {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-3.5">
-              {/* Row 1: Title(s) */}
-              {category === 'kannada' ? (
-                <div className="space-y-2.5">
-                  <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-cyan-300 mb-1">
-                      Kannada Title (ಕನ್ನಡ ಶೀರ್ಷಿಕೆ)
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. ಆಶ್ರಯವು ನೀನೇ ಯೇಸಯ್ಯ (Optional, auto-fills from lyrics)"
-                      value={kannadaTitle}
-                      onChange={(e) => setKannadaTitle(e.target.value)}
-                      className="w-full px-3.5 py-2 rounded-xl glass-input text-white text-sm outline-none font-bold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1">
-                      English Transliteration <span className="text-rose-400">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. Aashrayavu Neene Yesayya"
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                      className="w-full px-3.5 py-2 rounded-xl glass-input text-white text-sm outline-none font-bold"
-                    />
+              {/* Row 1: Auto-Generated Song Name Display from First 3 Words of Lyrics */}
+              <div className="p-3 rounded-xl bg-slate-900 border border-cyan-500/30 flex items-center justify-between gap-2 shadow-sm">
+                <div className="flex items-center gap-2 truncate">
+                  <Sparkles className="w-4 h-4 text-cyan-400 shrink-0" />
+                  <div className="flex flex-col truncate">
+                    <span className="text-[10px] uppercase font-mono font-bold text-cyan-300">
+                      Song Name (Auto-taken from first 3 words):
+                    </span>
+                    <span className="text-sm font-bold text-white truncate">
+                      {displayTitle || <span className="text-slate-500 italic text-xs">Paste lyrics below to auto-name...</span>}
+                    </span>
                   </div>
                 </div>
-              ) : (
-                <div>
+                <button
+                  type="button"
+                  onClick={() => setShowCustomTitle(!showCustomTitle)}
+                  className="text-[10px] font-mono text-cyan-300 hover:text-cyan-200 font-bold px-2 py-1 rounded bg-slate-800 border border-white/10 shrink-0"
+                >
+                  {showCustomTitle ? 'Auto-Name' : 'Edit Name'}
+                </button>
+              </div>
+
+              {/* Optional Custom Name (Only if clicked "Edit Name") */}
+              {showCustomTitle && (
+                <div className="animate-fadeIn">
                   <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1">
-                    Song Title <span className="text-rose-400">*</span>
+                    Custom Song Name (Optional)
                   </label>
                   <input
                     type="text"
-                    required
-                    placeholder="e.g. 10,000 Reasons"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl glass-input text-white text-sm outline-none font-bold"
+                    placeholder="e.g. Aashrayavu Neene Yesayya"
+                    value={customTitle}
+                    onChange={(e) => setCustomTitle(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded-xl glass-input text-white text-sm outline-none font-bold"
                   />
                 </div>
               )}
@@ -733,7 +835,7 @@ export default function SongsSetup({ onBack }) {
                         lyricsTab === 'image' ? 'bg-indigo-600 text-white font-bold' : 'text-slate-400'
                       }`}
                     >
-                      Image
+                      Image / Sheet
                     </button>
                   </div>
                 </div>
@@ -765,9 +867,12 @@ export default function SongsSetup({ onBack }) {
                   />
                 )}
 
-                {/* Image Upload Tab */}
+                {/* Image Upload & Paste Tab */}
                 {lyricsTab === 'image' && (
-                  <div>
+                  <div
+                    onDrop={handleDropImage}
+                    onDragOver={(e) => e.preventDefault()}
+                  >
                     <input
                       type="file"
                       ref={fileInputRef}
@@ -777,19 +882,29 @@ export default function SongsSetup({ onBack }) {
                     />
 
                     {lyricsImage ? (
-                      <div className="p-2 rounded-xl border border-white/10 bg-slate-950 text-center">
+                      <div className="p-3 rounded-xl border border-white/10 bg-slate-950 text-center">
                         <img
                           src={lyricsImage}
                           alt="Sheet Preview"
-                          className="max-h-48 mx-auto rounded-lg object-contain mb-2"
+                          className="max-h-56 mx-auto rounded-lg object-contain mb-2 shadow-lg"
                         />
+                        <div className="text-[11px] text-slate-400 mb-2 font-mono">
+                          {imageFileName || 'Image Ready'}
+                        </div>
                         <div className="flex items-center justify-center gap-3 text-xs">
                           <button
                             type="button"
                             onClick={() => fileInputRef.current?.click()}
-                            className="text-indigo-400 font-bold"
+                            className="px-3 py-1 rounded-lg bg-slate-800 text-indigo-400 font-bold border border-white/5 active-press"
                           >
-                            Replace Image
+                            Browse Different
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handlePasteFromClipboardBtn}
+                            className="px-3 py-1 rounded-lg bg-slate-800 text-cyan-400 font-bold border border-white/5 active-press"
+                          >
+                            Paste Again
                           </button>
                           <button
                             type="button"
@@ -797,20 +912,44 @@ export default function SongsSetup({ onBack }) {
                               setLyricsImage(null);
                               setImageFileName('');
                             }}
-                            className="text-rose-400 font-bold"
+                            className="px-3 py-1 rounded-lg bg-slate-800 text-rose-400 font-bold border border-white/5 active-press"
                           >
                             Remove
                           </button>
                         </div>
                       </div>
                     ) : (
-                      <div
-                        onClick={() => fileInputRef.current?.click()}
-                        className="cursor-pointer border-2 border-dashed border-white/15 rounded-xl p-6 text-center bg-slate-900/50 active-press hover:border-indigo-400/50 transition"
-                      >
-                        <Upload className="w-6 h-6 text-slate-400 mx-auto mb-1" />
-                        <p className="text-xs font-bold text-slate-300">Tap to upload chord chart screenshot</p>
-                        <p className="text-[10px] text-slate-500">PNG, JPG, or phone screenshot</p>
+                      <div className="border-2 border-dashed border-white/20 rounded-xl p-5 text-center bg-slate-900/60 transition space-y-2.5">
+                        <Upload className="w-7 h-7 text-indigo-400 mx-auto" />
+                        
+                        <div>
+                          <p className="text-xs font-bold text-slate-200">
+                            Press <kbd className="px-1.5 py-0.5 bg-slate-800 border border-white/20 rounded font-mono text-cyan-300 text-[11px]">Ctrl+V</kbd> to Paste Screenshot Image
+                          </p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">
+                            Take a screenshot on PC or Phone, or copy any image, and press Ctrl+V anywhere
+                          </p>
+                        </div>
+
+                        {/* Paste from Clipboard Button for mobile & desktop */}
+                        <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={handlePasteFromClipboardBtn}
+                            className="px-3.5 py-1.5 rounded-xl bg-cyan-600/30 hover:bg-cyan-600/50 border border-cyan-500/40 text-cyan-200 text-xs font-bold active-press transition flex items-center gap-1.5 shadow"
+                          >
+                            <Clipboard className="w-3.5 h-3.5" />
+                            <span>Paste from Clipboard</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-white/10 text-slate-300 text-xs font-bold active-press transition"
+                          >
+                            Browse Files
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
