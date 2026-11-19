@@ -360,6 +360,14 @@ app.get('/api/network-info', (req, res) => {
   });
 });
 
+function isMeaningfulTitle(str) {
+  if (!str || typeof str !== 'string') return false;
+  const s = str.trim();
+  if (!s) return false;
+  if (/^(pasted\s*(image|screenshot)|screenshot|img_|image|sheet|picture|photo)/i.test(s)) return false;
+  return true;
+}
+
 app.get('/api/songs', (req, res) => {
   const songs = loadSongs();
   res.json(songs);
@@ -382,16 +390,19 @@ app.post('/api/songs', (req, res) => {
   const songCat = category ? String(category).toLowerCase() : (isKannada ? 'kannada' : 'english');
   const lyricsExtracted = extractFirstLyricsLine(kannadaLyrics || englishLyrics || lyricsText);
 
-  // Fallback title so it NEVER fails with "Song title is required"
+  const cleanTitle = isMeaningfulTitle(title) ? String(title).trim() : '';
+  const cleanKannadaTitle = isMeaningfulTitle(kannadaTitle) ? String(kannadaTitle).trim() : '';
+
+  // Fallback title so it NEVER fails or saves an image file name
   const finalTitle = (
-    (title && String(title).trim()) ||
-    (kannadaTitle && String(kannadaTitle).trim()) ||
+    cleanTitle ||
+    cleanKannadaTitle ||
     lyricsExtracted ||
     `Song #${songNum}`
   ).trim();
 
   const finalKannadaTitle = (
-    (kannadaTitle && String(kannadaTitle).trim()) ||
+    cleanKannadaTitle ||
     (songCat === 'kannada' ? (lyricsExtracted || finalTitle) : '')
   ).trim();
 
@@ -443,7 +454,7 @@ app.put('/api/songs/:id', (req, res) => {
     ? String(kannadaTitle).trim() 
     : (existing.kannadaTitle || (newCat === 'kannada' ? extractFirstLyricsLine(newKannadaLyrics) : ''));
 
-  const cleanTitle = (title !== undefined && String(title).trim()) 
+  const cleanTitle = (title !== undefined && isMeaningfulTitle(title)) 
     ? String(title).trim() 
     : (existing.title || (newKannadaTitle || `Song #${existing.songNumber || index + 1}`));
 

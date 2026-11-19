@@ -10,6 +10,14 @@ import { getKannadaTitle } from '../utils/musicTransposer';
 const QUICK_KEYS = ['Em', 'Cm', 'Gm', 'Dm', 'Am', 'G', 'D', 'C', 'F', 'A', 'E', 'Bb'];
 
 // Helper to extract first 3 words of a song from lyrics (skipping chord lines and section tags)
+function isMeaningfulTitle(str) {
+  if (!str || typeof str !== 'string') return false;
+  const s = str.trim();
+  if (!s) return false;
+  if (/^(pasted\s*(image|screenshot)|screenshot|img_|image|sheet|picture|photo)/i.test(s)) return false;
+  return true;
+}
+
 function extractFirstWords(text, maxWords = 3) {
   if (!text) return '';
   for (const rawLine of text.split('\n')) {
@@ -43,7 +51,7 @@ export default function SongsSetup({ onBack }) {
 
   // Form State
   const [customTitle, setCustomTitle] = useState('');
-  const [showCustomTitle, setShowCustomTitle] = useState(false);
+  const [isAutoTitle, setIsAutoTitle] = useState(true);
   const [songNumber, setSongNumber] = useState('');
   const [category, setCategory] = useState('kannada'); // 'kannada' | 'english'
   const [type, setType] = useState('Worship'); // 'Worship' | 'Praise'
@@ -94,7 +102,7 @@ export default function SongsSetup({ onBack }) {
             const reader = new FileReader();
             reader.onload = (event) => {
               setLyricsImage(event.target.result);
-              setImageFileName('Pasted Image ' + new Date().toLocaleTimeString());
+              setImageFileName('Attached Sheet Image');
               setLyricsTab('image');
             };
             reader.readAsDataURL(file);
@@ -122,7 +130,7 @@ export default function SongsSetup({ onBack }) {
 
   const resetForm = () => {
     setCustomTitle('');
-    setShowCustomTitle(false);
+    setIsAutoTitle(true);
     setSongNumber('');
     setCategory('kannada');
     setType('Worship');
@@ -234,7 +242,7 @@ export default function SongsSetup({ onBack }) {
           const reader = new FileReader();
           reader.onload = (event) => {
             setLyricsImage(event.target.result);
-            setImageFileName('Pasted Screenshot ' + new Date().toLocaleTimeString());
+            setImageFileName('Attached Sheet Image');
             setLyricsTab('image');
           };
           reader.readAsDataURL(blob);
@@ -277,42 +285,46 @@ export default function SongsSetup({ onBack }) {
   const autoEnglishName = extractFirstWords(englishLyrics, 3);
   const songNumStr = songNumber.trim();
   const fallbackDefaultName = songNumStr ? `Song #${songNumStr}` : `Song ${songs.length + 1}`;
-  const imageFallbackTitle = imageFileName ? imageFileName.replace(/\.[^/.]+$/, '').trim() : '';
+  const cleanImageFileName = isMeaningfulTitle(imageFileName ? imageFileName.replace(/\.[^/.]+$/, '').trim() : '')
+    ? imageFileName.replace(/\.[^/.]+$/, '').trim()
+    : '';
 
   const displayTitle = (
     customTitle.trim() ||
     (category === 'kannada' ? (autoKannadaName || autoEnglishName) : (autoEnglishName || autoKannadaName)) ||
-    imageFallbackTitle ||
+    cleanImageFileName ||
     fallbackDefaultName
   );
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Auto-detect names from first 3 words of lyrics, image, or song number
+    // Auto-detect names from first 3 words of lyrics, custom title, or song number
     const autoK = extractFirstWords(kannadaLyrics, 3);
     const autoE = extractFirstWords(englishLyrics, 3);
     const custom = customTitle.trim();
     const curSongNum = songNumber.trim();
     const defaultName = curSongNum ? `Song #${curSongNum}` : `Song ${songs.length + 1}`;
-    const imgTitle = imageFileName ? imageFileName.replace(/\.[^/.]+$/, '').trim() : '';
+    const cleanImgTitle = isMeaningfulTitle(imageFileName ? imageFileName.replace(/\.[^/.]+$/, '').trim() : '')
+      ? imageFileName.replace(/\.[^/.]+$/, '').trim()
+      : '';
 
     // Primary Kannada title:
     const finalKannadaTitle = (
       custom ||
       autoK ||
       autoE ||
-      imgTitle ||
+      cleanImgTitle ||
       (category === 'kannada' ? defaultName : '')
     ).trim();
 
     // Primary title (ALWAYS guaranteed to be non-empty so saving never fails):
     const finalTitle = (
       custom ||
-      (category === 'kannada' ? (autoE || autoK) : (autoE || autoK)) ||
+      (category === 'kannada' ? (autoK || autoE) : (autoE || autoK)) ||
       autoK ||
       autoE ||
-      imgTitle ||
+      cleanImgTitle ||
       defaultName
     ).trim() || defaultName;
 
@@ -332,7 +344,7 @@ export default function SongsSetup({ onBack }) {
       kannadaLyrics: kannadaLyrics.trim(),
       englishLyrics: englishLyrics.trim(),
       lyricsText: primaryLyrics,
-      lyricsImage: lyricsTab === 'image' ? lyricsImage : null
+      lyricsImage: lyricsImage || null
     };
 
     try {
@@ -648,43 +660,30 @@ export default function SongsSetup({ onBack }) {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-3.5">
-              {/* Row 1: Auto-Generated Song Name Display from First 3 Words of Lyrics */}
-              <div className="p-3 rounded-xl bg-slate-900 border border-cyan-500/30 flex items-center justify-between gap-2 shadow-sm">
-                <div className="flex items-center gap-2 truncate">
-                  <Sparkles className="w-4 h-4 text-cyan-400 shrink-0" />
-                  <div className="flex flex-col truncate">
-                    <span className="text-[10px] uppercase font-mono font-bold text-cyan-300">
-                      Song Name (Auto-taken from first 3 words):
-                    </span>
-                    <span className="text-sm font-bold text-white truncate">
-                      {displayTitle || <span className="text-slate-500 italic text-xs">Paste lyrics below to auto-name...</span>}
-                    </span>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowCustomTitle(!showCustomTitle)}
-                  className="text-[10px] font-mono text-cyan-300 hover:text-cyan-200 font-bold px-2 py-1 rounded bg-slate-800 border border-white/10 shrink-0"
-                >
-                  {showCustomTitle ? 'Auto-Name' : 'Edit Name'}
-                </button>
-              </div>
-
-              {/* Optional Custom Name (Only if clicked "Edit Name") */}
-              {showCustomTitle && (
-                <div className="animate-fadeIn">
-                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1">
-                    Custom Song Name (Optional)
+              {/* Row 1: Song Name / Lyrics Name (First 3 words) */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-cyan-300 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Song Name (First 3 words of lyrics):</span>
                   </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Aashrayavu Neene Yesayya"
-                    value={customTitle}
-                    onChange={(e) => setCustomTitle(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl glass-input text-white text-sm outline-none font-bold"
-                  />
+                  {(autoKannadaName || autoEnglishName || customTitle) && (
+                    <span className="text-[10px] font-mono text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30">
+                      Title Active ✓
+                    </span>
+                  )}
                 </div>
-              )}
+                <input
+                  type="text"
+                  placeholder="Paste lyrics below to auto-name, or type 3 words (e.g. ಎಂದೂ ಆನಂದ ನನ್ನೇಸು)"
+                  value={customTitle}
+                  onChange={(e) => {
+                    setCustomTitle(e.target.value);
+                    setIsAutoTitle(false);
+                  }}
+                  className="w-full px-3.5 py-2.5 rounded-xl glass-input text-white text-sm outline-none font-bold border border-cyan-500/40 focus:border-cyan-400 shadow-sm"
+                />
+              </div>
 
               {/* Row 2: Song Number (#) & Language Category */}
               <div className="grid grid-cols-2 gap-3">
@@ -881,7 +880,16 @@ export default function SongsSetup({ onBack }) {
                     rows="8"
                     placeholder={`Em         D\nಆಶ್ರಯವು ನೀನೇ ಯೇಸಯ್ಯ\nC        D         Em\nನನಗಾಧಾರವು ನೀನೇ ಯೇಸಯ್ಯ ||2`}
                     value={kannadaLyrics}
-                    onChange={(e) => setKannadaLyrics(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setKannadaLyrics(val);
+                      if (isAutoTitle || !customTitle) {
+                        const words = extractFirstWords(val, 3);
+                        if (words) {
+                          setCustomTitle(words);
+                        }
+                      }
+                    }}
                     className="w-full p-3 rounded-xl glass-input text-white text-xs font-sans leading-relaxed outline-none resize-none font-medium"
                   />
                 )}
@@ -892,7 +900,16 @@ export default function SongsSetup({ onBack }) {
                     rows="8"
                     placeholder={`Em         D\nAashrayavu Neene Yesayya\nC        D         Em\nNanagaadhaaraavu Neene Yesayya ||2`}
                     value={englishLyrics}
-                    onChange={(e) => setEnglishLyrics(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setEnglishLyrics(val);
+                      if (isAutoTitle || !customTitle) {
+                        const words = extractFirstWords(val, 3);
+                        if (words) {
+                          setCustomTitle(words);
+                        }
+                      }
+                    }}
                     className="w-full p-3 rounded-xl glass-input text-white text-xs font-sans leading-relaxed outline-none resize-none font-medium"
                   />
                 )}
@@ -919,9 +936,9 @@ export default function SongsSetup({ onBack }) {
                           className="max-h-56 mx-auto rounded-lg object-contain mb-2 shadow-lg"
                         />
                         <div className="text-[11px] text-slate-400 mb-2 font-mono">
-                          {imageFileName || 'Image Ready'}
+                          {imageFileName || 'Attached Sheet Image'}
                         </div>
-                        <div className="flex items-center justify-center gap-3 text-xs">
+                        <div className="flex items-center justify-center gap-3 text-xs mb-3">
                           <button
                             type="button"
                             onClick={() => fileInputRef.current?.click()}
@@ -946,6 +963,30 @@ export default function SongsSetup({ onBack }) {
                           >
                             Remove
                           </button>
+                        </div>
+
+                        {/* Starting Lyrics / Song Name Input on Image Tab */}
+                        <div className="text-left pt-2.5 border-t border-white/10">
+                          <label className="block text-[11px] font-bold uppercase tracking-wider text-cyan-300 mb-1 flex items-center gap-1">
+                            <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                            <span>First 3 Words of Song Lyrics (Title):</span>
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="e.g. ಎಂದೂ ಆನಂದ ನನ್ನೇಸು"
+                            value={customTitle}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setCustomTitle(val);
+                              setIsAutoTitle(false);
+                              if (category === 'kannada' && !kannadaLyrics) {
+                                setKannadaLyrics(val);
+                              } else if (!englishLyrics) {
+                                setEnglishLyrics(val);
+                              }
+                            }}
+                            className="w-full px-3 py-2 rounded-xl glass-input text-white text-xs outline-none font-bold border border-cyan-500/40"
+                          />
                         </div>
                       </div>
                     ) : (
