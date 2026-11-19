@@ -370,24 +370,35 @@ app.post('/api/songs', (req, res) => {
     title, kannadaTitle, songNumber, type, tempo, styleNumber, chords, 
     originalKey, category, lyricsText, kannadaLyrics, englishLyrics, lyricsImage 
   } = req.body;
-  if (!title) {
-    return res.status(400).json({ error: 'Song title is required' });
-  }
 
   const songs = loadSongs();
   const nextNum = String(songs.length + 1).padStart(2, '0');
+  const songNum = songNumber ? String(songNumber).trim() : nextNum;
   const songChords = String(chords || '').trim();
   const songOrigKey = String(originalKey || songChords || 'C').trim();
   
   // Auto-detect category if not explicitly given
   const isKannada = /[\u0C80-\u0CFF]/.test((kannadaLyrics || '') + (lyricsText || ''));
   const songCat = category ? String(category).toLowerCase() : (isKannada ? 'kannada' : 'english');
-  const finalKannadaTitle = kannadaTitle ? String(kannadaTitle).trim() : (songCat === 'kannada' ? extractFirstLyricsLine(kannadaLyrics || lyricsText) : '');
+  const lyricsExtracted = extractFirstLyricsLine(kannadaLyrics || englishLyrics || lyricsText);
+
+  // Fallback title so it NEVER fails with "Song title is required"
+  const finalTitle = (
+    (title && String(title).trim()) ||
+    (kannadaTitle && String(kannadaTitle).trim()) ||
+    lyricsExtracted ||
+    `Song #${songNum}`
+  ).trim();
+
+  const finalKannadaTitle = (
+    (kannadaTitle && String(kannadaTitle).trim()) ||
+    (songCat === 'kannada' ? (lyricsExtracted || finalTitle) : '')
+  ).trim();
 
   const newSong = {
     id: `song-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-    songNumber: songNumber ? String(songNumber).trim() : nextNum,
-    title: title.trim(),
+    songNumber: songNum,
+    title: finalTitle,
     kannadaTitle: finalKannadaTitle,
     type: type === 'Praise' ? 'Praise' : 'Worship',
     tempo: Number(tempo) || 72,
@@ -432,10 +443,14 @@ app.put('/api/songs/:id', (req, res) => {
     ? String(kannadaTitle).trim() 
     : (existing.kannadaTitle || (newCat === 'kannada' ? extractFirstLyricsLine(newKannadaLyrics) : ''));
 
+  const cleanTitle = (title !== undefined && String(title).trim()) 
+    ? String(title).trim() 
+    : (existing.title || (newKannadaTitle || `Song #${existing.songNumber || index + 1}`));
+
   songs[index] = {
     ...existing,
-    title: title !== undefined ? title.trim() : existing.title,
-    kannadaTitle: newKannadaTitle,
+    title: cleanTitle,
+    kannadaTitle: newKannadaTitle || (newCat === 'kannada' ? cleanTitle : ''),
     songNumber: songNumber !== undefined ? String(songNumber).trim() : existing.songNumber,
     type: type !== undefined ? (type === 'Praise' ? 'Praise' : 'Worship') : existing.type,
     tempo: tempo !== undefined ? Number(tempo) : existing.tempo,

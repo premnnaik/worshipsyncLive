@@ -272,28 +272,57 @@ export default function SongsSetup({ onBack }) {
     }
   };
 
-  // Auto-derived title from first 3 words of lyrics
+  // Auto-derived title from first 3 words of lyrics or fallback
   const autoKannadaName = extractFirstWords(kannadaLyrics, 3);
   const autoEnglishName = extractFirstWords(englishLyrics, 3);
-  const displayTitle = customTitle.trim() || (category === 'kannada' ? (autoKannadaName || autoEnglishName) : (autoEnglishName || autoKannadaName));
+  const songNumStr = songNumber.trim();
+  const fallbackDefaultName = songNumStr ? `Song #${songNumStr}` : `Song ${songs.length + 1}`;
+  const imageFallbackTitle = imageFileName ? imageFileName.replace(/\.[^/.]+$/, '').trim() : '';
+
+  const displayTitle = (
+    customTitle.trim() ||
+    (category === 'kannada' ? (autoKannadaName || autoEnglishName) : (autoEnglishName || autoKannadaName)) ||
+    imageFallbackTitle ||
+    fallbackDefaultName
+  );
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Auto-detect names from first 3 words of lyrics if not custom set!
-    const derivedKannada = autoKannadaName || autoEnglishName || 'ಆರಾಧನೆ';
-    const derivedEnglish = autoEnglishName || autoKannadaName || (songNumber ? `Song #${songNumber}` : 'Worship Song');
-    
-    const finalKannadaTitle = customTitle.trim() || derivedKannada;
-    const finalTitle = customTitle.trim() || (category === 'kannada' ? (autoEnglishName || autoKannadaName) : derivedEnglish);
+    // Auto-detect names from first 3 words of lyrics, image, or song number
+    const autoK = extractFirstWords(kannadaLyrics, 3);
+    const autoE = extractFirstWords(englishLyrics, 3);
+    const custom = customTitle.trim();
+    const curSongNum = songNumber.trim();
+    const defaultName = curSongNum ? `Song #${curSongNum}` : `Song ${songs.length + 1}`;
+    const imgTitle = imageFileName ? imageFileName.replace(/\.[^/.]+$/, '').trim() : '';
+
+    // Primary Kannada title:
+    const finalKannadaTitle = (
+      custom ||
+      autoK ||
+      autoE ||
+      imgTitle ||
+      (category === 'kannada' ? defaultName : '')
+    ).trim();
+
+    // Primary title (ALWAYS guaranteed to be non-empty so saving never fails):
+    const finalTitle = (
+      custom ||
+      (category === 'kannada' ? (autoE || autoK) : (autoE || autoK)) ||
+      autoK ||
+      autoE ||
+      imgTitle ||
+      defaultName
+    ).trim() || defaultName;
 
     setSaving(true);
     const primaryLyrics = category === 'kannada' ? (kannadaLyrics.trim() || englishLyrics.trim()) : (englishLyrics.trim() || kannadaLyrics.trim());
     
     const payload = {
       title: finalTitle,
-      kannadaTitle: finalKannadaTitle,
-      songNumber: songNumber.trim(),
+      kannadaTitle: finalKannadaTitle || finalTitle,
+      songNumber: curSongNum,
       category,
       type,
       tempo: Number(tempo) || 72,
@@ -503,11 +532,12 @@ export default function SongsSetup({ onBack }) {
                         </span>
                       </div>
 
-                      {/* English Transliteration Title moved down! */}
-                      <div className="text-xs text-slate-300 font-medium truncate flex items-center gap-1.5">
-                        <span className="text-slate-500 text-[10px] font-mono uppercase tracking-wider">English:</span>
-                        <span className="text-slate-200 font-semibold">{song.title}</span>
-                      </div>
+                      {/* English Transliteration Title moved down (underneath BPM / Style / Key) */}
+                      {song.title && song.title !== (song.kannadaTitle || getKannadaTitle(song)) && (
+                        <div className="text-xs text-slate-400 font-medium truncate">
+                          {song.title}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
