@@ -48,6 +48,11 @@ export default function IncomerLive({ room, user, onLeaveRoom }) {
     const handleSongsUpdated = (updatedSongs) => {
       if (Array.isArray(updatedSongs)) {
         setAllSongs(updatedSongs);
+        setCurrentSong(prev => {
+          if (!prev) return prev;
+          const fresh = updatedSongs.find(s => s.id === prev.id);
+          return fresh || prev;
+        });
       }
     };
 

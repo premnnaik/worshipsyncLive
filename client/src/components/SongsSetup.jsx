@@ -858,8 +858,7 @@ export default function SongsSetup({ onBack }) {
                 <img
                   src={previewSong.lyricsImage}
                   alt={previewSong.title}
-                  className="max-w-full rounded-xl border border-white/10 shadow-2xl object-contain select-none"
-                  style={{ maxHeight: '82vh' }}
+                  className="w-full max-w-xl mx-auto rounded-xl border border-white/10 shadow-2xl object-contain select-none"
                 />
               </div>
             ) : (
@@ -884,8 +883,7 @@ export default function SongsSetup({ onBack }) {
                       <img
                         src={previewSong.lyricsImage}
                         alt={previewSong.title}
-                        className="max-w-full rounded-xl border border-white/10 shadow-2xl object-contain select-none"
-                        style={{ maxHeight: '82vh' }}
+                        className="w-full max-w-xl mx-auto rounded-xl border border-white/10 shadow-2xl object-contain select-none"
                       />
                     </div>
                   ) : (

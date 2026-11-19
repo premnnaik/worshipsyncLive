@@ -929,8 +929,7 @@ export default function StageView({
                 <img
                   src={currentSong.lyricsImage}
                   alt={currentSong.title}
-                  className="max-w-full rounded-xl border border-white/10 shadow-2xl object-contain select-none"
-                  style={{ maxHeight: isFullScreen ? '90vh' : '72vh' }}
+                  className="w-full max-w-xl mx-auto rounded-xl border border-white/10 shadow-2xl object-contain select-none"
                 />
               </div>
             ) : (
@@ -955,8 +954,7 @@ export default function StageView({
                       <img
                         src={currentSong.lyricsImage}
                         alt={currentSong.title}
-                        className="max-w-full rounded-xl border border-white/10 shadow-2xl object-contain select-none"
-                        style={{ maxHeight: isFullScreen ? '90vh' : '72vh' }}
+                        className="w-full max-w-xl mx-auto rounded-xl border border-white/10 shadow-2xl object-contain select-none"
                       />
                     </div>
                   ) : (
@@ -1088,12 +1086,19 @@ export default function StageView({
             {/* MINI WINDOW HEADER WITH [ SUGGEST ] AND [ ✕ ] AT TOP AS REQUESTED */}
             <div className="px-3.5 py-3 bg-[#0f131c] border-b border-white/10 flex items-center justify-between gap-2 shrink-0">
               <div className="flex items-center gap-2 truncate">
-                <span className="px-1.5 py-0.5 rounded font-mono text-[10px] font-black bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                <span className="px-1.5 py-0.5 rounded font-mono text-[10px] font-black bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shrink-0">
                   {previewSong.songNumber ? `#${previewSong.songNumber}` : 'Song'}
                 </span>
-                <span className="font-bold text-sm text-white truncate">
-                  {previewSong.title}
-                </span>
+                <div className="flex flex-col truncate min-w-0 text-left">
+                  <span className="font-bold text-sm text-white truncate">
+                    {previewSong.kannadaTitle || getKannadaTitle(previewSong) || previewSong.title}
+                  </span>
+                  {previewSong.title && previewSong.title !== (previewSong.kannadaTitle || getKannadaTitle(previewSong)) && (
+                    <span className="text-[10px] text-slate-400 truncate">
+                      {previewSong.title}
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* ACTION BUTTONS AT TOP AS REQUESTED */}
