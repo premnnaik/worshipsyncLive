@@ -161,10 +161,11 @@ export default function SongsSetup({ onBack }) {
 
   const handleEdit = (song) => {
     setEditingSong(song);
-    setCustomTitle(song.title || '');
-    setShowCustomTitle(Boolean(song.title));
-    setSongNumber(song.songNumber ? String(song.songNumber) : '');
     const isEng = song.category === 'english' || song.id?.includes('way-maker') || song.id?.includes('10000');
+    const initialTitle = isEng ? (song.title || '') : (song.kannadaTitle || song.title || '');
+    setCustomTitle(initialTitle);
+    setIsAutoTitle(false);
+    setSongNumber(song.songNumber ? String(song.songNumber) : '');
     setCategory(isEng ? 'english' : 'kannada');
     setType(song.type || 'Worship');
     setTempo(song.tempo || 72);
@@ -178,7 +179,7 @@ export default function SongsSetup({ onBack }) {
     setEnglishLyrics(eLyrics);
 
     setLyricsImage(song.lyricsImage || null);
-    setImageFileName(song.lyricsImage ? 'Attached Screenshot' : '');
+    setImageFileName(song.lyricsImage ? 'Attached Sheet Image' : '');
     setLyricsTab(song.lyricsImage ? 'image' : (isEng ? 'english' : 'kannada'));
     setIsFormOpen(true);
   };
@@ -508,8 +509,12 @@ export default function SongsSetup({ onBack }) {
 
                         <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                           <button
-                            onClick={() => handleEdit(song)}
-                            className="p-1 rounded-lg text-slate-400 hover:text-white"
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEdit(song);
+                            }}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition active-press"
                             title="Edit"
                           >
                             <Edit3 className="w-3.5 h-3.5" />
@@ -593,8 +598,12 @@ export default function SongsSetup({ onBack }) {
 
                         <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                           <button
-                            onClick={() => handleEdit(song)}
-                            className="p-1 rounded-lg text-slate-400 hover:text-white"
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEdit(song);
+                            }}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition active-press"
                             title="Edit"
                           >
                             <Edit3 className="w-3.5 h-3.5" />
