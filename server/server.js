@@ -318,7 +318,7 @@ const io = new Server(httpServer, {
 function isChordLine(line) {
   const t = line.trim();
   if (!t || /[^\x00-\x7F]/.test(t) || /[[\].,!?|:;]/.test(t)) return false;
-  return t.split(/\s+/).every(tok => /^[A-G][#b]?(?:m|min|maj|dim|aug|sus|add)?[0-9]*(?:\/[A-G][#b]?)?$/.test(tok));
+  return t.split(/\s+/).every(tok => /^[A-G][#b]?(?:m|min|maj|dim|aug|sus|add)?[0-9]*(?:\/[A-G][#b]?(?:m|min|maj|dim|aug|sus|add)?[0-9]*)?$/i.test(tok));
 }
 
 function extractFirstLyricsLine(text) {

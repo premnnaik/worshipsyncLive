@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { getSongs, createSong, updateSong, deleteSong } from '../services/api';
 import { socket } from '../services/socket';
-import { getKannadaTitle } from '../utils/musicTransposer';
+import { getKannadaTitle, isChordLine } from '../utils/musicTransposer';
 
 const QUICK_KEYS = ['Em', 'Cm', 'Gm', 'Dm', 'Am', 'G', 'D', 'C', 'F', 'A', 'E', 'Bb'];
 
@@ -24,8 +24,7 @@ function extractFirstWords(text, maxWords = 3) {
     const line = rawLine.trim();
     if (!line) continue;
     // Skip chord lines
-    const isChord = line.split(/\s+/).every(tok => /^[A-G][#b]?(?:m|min|maj|dim|aug|sus|add)?[0-9]*(?:\/[A-G][#b]?)?$/.test(tok));
-    if (isChord) continue;
+    if (isChordLine(line)) continue;
     if (line.startsWith('[') && line.endsWith(']')) continue;
     const cleaned = line
       .replace(/^\d+[\.\)]\s*/, '')

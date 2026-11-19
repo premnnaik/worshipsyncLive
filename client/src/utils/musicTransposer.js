@@ -55,37 +55,39 @@ export function shouldUseFlatScale(keyStr) {
   return FLAT_ROOTS.has(rootUpper);
 }
 
-// Transpose a single chord token, e.g. "G" -> "C", "Am" -> "Dm", "D/F#" -> "G/B"
+// Transpose a single chord token, e.g. "G" -> "C", "Am" -> "Dm", "D/F#" -> "G/B", "Esus/E7" -> "Gsus/G7"
 export function transposeChordToken(token, semitones, preferFlats = false) {
   if (semitones === 0) return token;
 
-  // Regex to extract root note, chord quality/extensions, and optional slash bass note
-  const regex = /^([A-G][#b]?)(.*?)(?:\/([A-G][#b]?))?$/;
-  const match = token.match(regex);
-  if (!match) return token;
+  // Handle slash chords and compound/alternate chords (e.g. "D/F#" or "Esus/E7")
+  if (token.includes('/')) {
+    const parts = token.split('/');
+    const transposedParts = parts.map(part => {
+      const match = part.match(/^([A-G][#b]?)(.*)$/i);
+      if (!match) return part;
+      const [, root, ext] = match;
+      const rootIdx = getNoteIndex(root);
+      if (rootIdx === -1) return part;
+      const scale = preferFlats ? FLAT_SCALE : SHARP_SCALE;
+      const newRootIdx = (rootIdx + semitones + 120) % 12;
+      return scale[newRootIdx] + ext;
+    });
+    return transposedParts.join('/');
+  }
 
-  const [, root, extension = '', slashBass] = match;
+  const match = token.match(/^([A-G][#b]?)(.*)$/i);
+  if (!match) return token;
+  const [, root, ext] = match;
   const rootIdx = getNoteIndex(root);
   if (rootIdx === -1) return token;
 
   const scale = preferFlats ? FLAT_SCALE : SHARP_SCALE;
   const newRootIdx = (rootIdx + semitones + 120) % 12;
-  const newRoot = scale[newRootIdx];
-
-  let newBass = '';
-  if (slashBass) {
-    const bassIdx = getNoteIndex(slashBass);
-    if (bassIdx !== -1) {
-      const newBassIdx = (bassIdx + semitones + 120) % 12;
-      newBass = '/' + scale[newBassIdx];
-    }
-  }
-
-  return newRoot + extension + newBass;
+  return scale[newRootIdx] + ext;
 }
 
-// Check if a line is composed purely of chords
-const CHORD_TOKEN_REGEX = /^[A-G][#b]?(?:m|min|maj|dim|aug|sus|add)?[0-9]*(?:\/[A-G][#b]?)?$/;
+// Check if a line is composed purely of chords (including slash and alternate chords like Esus/E7, D/F#)
+const CHORD_TOKEN_REGEX = /^[A-G][#b]?(?:m|min|maj|dim|aug|sus|add)?[0-9]*(?:\/[A-G][#b]?(?:m|min|maj|dim|aug|sus|add)?[0-9]*)?$/i;
 
 export function isChordLine(line) {
   const trimmed = line.trim();
@@ -103,8 +105,9 @@ export function transposeChordLine(line, semitones, targetKeyOrPreferFlats = fal
     ? targetKeyOrPreferFlats
     : shouldUseFlatScale(targetKeyOrPreferFlats);
 
-  // Split line into words and whitespace segments to keep exact spacing
-  return line.replace(/([A-G][#b]?(?:m|min|maj|dim|aug|sus|add)?[0-9]*(?:\/[A-G][#b]?)?)/g, (chord) => {
+  // Match chord tokens including slash/alternate chords
+  const regex = /([A-G][#b]?(?:m|min|maj|dim|aug|sus|add)?[0-9]*(?:\/[A-G][#b]?(?:m|min|maj|dim|aug|sus|add)?[0-9]*)?)/gi;
+  return line.replace(regex, (chord) => {
     return transposeChordToken(chord, semitones, preferFlats);
   });
 }
