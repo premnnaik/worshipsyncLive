@@ -48,6 +48,12 @@ export default function SongsSetup({ onBack }) {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  // Live-Style Clean Lyrics Viewer state (when clicking a song card)
+  const [previewSong, setPreviewSong] = useState(null);
+  const [previewLanguage, setPreviewLanguage] = useState('kannada'); // 'kannada' | 'english' | 'both'
+  const [previewShowChords, setPreviewShowChords] = useState(true);
+  const [previewViewMode, setPreviewViewMode] = useState('sheet'); // 'sheet' | 'lyrics'
+
   // Form State
   const [customTitle, setCustomTitle] = useState('');
   const [isAutoTitle, setIsAutoTitle] = useState(true);
@@ -393,6 +399,37 @@ export default function SongsSetup({ onBack }) {
   const kannadaLibrarySongs = filteredSongs.filter(s => !(s.category === 'english' || s.id?.includes('way-maker') || s.id?.includes('10000')));
   const englishLibrarySongs = filteredSongs.filter(s => (s.category === 'english' || s.id?.includes('way-maker') || s.id?.includes('10000')));
 
+  // Render lyrics with chords in rose color and Kannada/English lines cleanly
+  const renderPreviewLyrics = (text, showChords) => {
+    if (!text) return null;
+    return text.split('\n').map((line, idx) => {
+      const trimmed = line.trim();
+      if (!trimmed) {
+        return <div key={idx} className="h-4" />;
+      }
+      if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+        return (
+          <div key={idx} className="text-xs font-bold uppercase tracking-widest text-indigo-400 mt-5 mb-1 pt-2 border-t border-white/10 font-mono">
+            {trimmed}
+          </div>
+        );
+      }
+      if (isChordLine(trimmed)) {
+        if (!showChords) return null;
+        return (
+          <div key={idx} className="text-rose-400 font-mono font-bold tracking-wider text-sm sm:text-base pt-2.5 pb-0.5 whitespace-pre select-all">
+            {line}
+          </div>
+        );
+      }
+      return (
+        <div key={idx} className="text-white font-medium min-h-[1.4em] py-0.5 whitespace-pre-wrap select-text">
+          {line}
+        </div>
+      );
+    });
+  };
+
   return (
     <div className="min-h-screen bg-[#050609] pb-safe flex flex-col select-none">
       {/* Mobile Top Header */}
@@ -482,7 +519,11 @@ export default function SongsSetup({ onBack }) {
                   {kannadaLibrarySongs.map((song) => (
                     <div
                       key={song.id}
-                      onClick={() => handleEdit(song)}
+                      onClick={() => {
+                        setPreviewSong(song);
+                        setPreviewViewMode(song.lyricsImage && !song.kannadaLyrics && !song.lyricsText ? 'sheet' : (song.lyricsImage ? 'sheet' : 'lyrics'));
+                        setPreviewLanguage('kannada');
+                      }}
                       className="p-3.5 rounded-2xl glass-panel hover:glass-panel-elevated border border-white/5 active-press transition cursor-pointer"
                     >
                       <div className="flex items-start justify-between gap-2 mb-1.5">
@@ -504,6 +545,12 @@ export default function SongsSetup({ onBack }) {
                           <span className="text-[9px] font-mono font-bold text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-white/5">
                             Kannada
                           </span>
+                          {song.lyricsImage && (
+                            <span className="text-[9px] font-mono font-bold text-indigo-300 bg-indigo-950/70 px-1.5 py-0.5 rounded border border-indigo-500/30 flex items-center gap-1">
+                              <ImageIcon className="w-2.5 h-2.5" />
+                              <span>Sheet</span>
+                            </span>
+                          )}
                         </div>
 
                         <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
@@ -571,7 +618,11 @@ export default function SongsSetup({ onBack }) {
                   {englishLibrarySongs.map((song) => (
                     <div
                       key={song.id}
-                      onClick={() => handleEdit(song)}
+                      onClick={() => {
+                        setPreviewSong(song);
+                        setPreviewViewMode(song.lyricsImage && !song.englishLyrics && !song.lyricsText ? 'sheet' : (song.lyricsImage ? 'sheet' : 'lyrics'));
+                        setPreviewLanguage('english');
+                      }}
                       className="p-3.5 rounded-2xl glass-panel hover:glass-panel-elevated border border-white/5 active-press transition cursor-pointer"
                     >
                       <div className="flex items-start justify-between gap-2 mb-1.5">
@@ -593,6 +644,12 @@ export default function SongsSetup({ onBack }) {
                           <span className="text-[9px] font-mono font-bold text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-white/5">
                             English
                           </span>
+                          {song.lyricsImage && (
+                            <span className="text-[9px] font-mono font-bold text-indigo-300 bg-indigo-950/70 px-1.5 py-0.5 rounded border border-indigo-500/30 flex items-center gap-1">
+                              <ImageIcon className="w-2.5 h-2.5" />
+                              <span>Sheet</span>
+                            </span>
+                          )}
                         </div>
 
                         <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
@@ -645,6 +702,203 @@ export default function SongsSetup({ onBack }) {
           </div>
         )}
       </main>
+
+      {/* Live-Style Clean Lyrics Viewer Modal */}
+      {previewSong && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-[#000000] text-slate-100 overflow-hidden select-none font-sans animate-fadeIn">
+          {/* Top Header matching Live Stage View */}
+          <header className="pt-safe px-3 py-2 bg-[#090b10] border-b border-white/10 shrink-0 z-30">
+            <div className="max-w-2xl mx-auto flex items-center justify-between gap-2">
+              <button
+                onClick={() => setPreviewSong(null)}
+                className="p-1.5 rounded-lg bg-slate-900 border border-white/10 text-slate-300 active-press shrink-0 flex items-center gap-1.5"
+                title="Back to Song Library"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span className="text-xs font-semibold hidden sm:inline">Library</span>
+              </button>
+
+              {/* Title & Badges */}
+              <div className="flex-1 min-w-0 px-2 text-center">
+                <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                  <span className={`text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded ${
+                    previewSong.type === 'Praise'
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                      : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                  }`}>
+                    {previewSong.type}
+                  </span>
+                  {previewSong.songNumber && (
+                    <span className="text-[10px] font-mono font-bold text-cyan-300 bg-cyan-950/70 px-1.5 py-0.2 rounded border border-cyan-500/30">
+                      #{previewSong.songNumber}
+                    </span>
+                  )}
+                  <h2 className="text-sm sm:text-base font-black text-white truncate inline">
+                    {previewSong.kannadaTitle || getKannadaTitle(previewSong) || previewSong.title}
+                  </h2>
+                </div>
+                {previewSong.title && previewSong.title !== (previewSong.kannadaTitle || getKannadaTitle(previewSong)) && (
+                  <div className="text-[10px] text-slate-400 font-medium truncate">
+                    {previewSong.title}
+                  </div>
+                )}
+              </div>
+
+              {/* Edit (Pencil) Button on top right of lyrics view as requested! */}
+              <button
+                onClick={() => {
+                  const s = previewSong;
+                  setPreviewSong(null);
+                  handleEdit(s);
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-indigo-500 to-cyan-500 hover:from-indigo-600 hover:to-cyan-600 text-white font-bold text-xs shadow-md active-press shrink-0"
+                title="Edit this song"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                <span>Edit</span>
+              </button>
+            </div>
+          </header>
+
+          {/* Sub-Header: Crucial Parameters Bar (Style, Tempo, Key) + Controls */}
+          <div className="px-3 py-2 bg-slate-950/90 border-b border-indigo-500/20 shrink-0">
+            <div className="max-w-2xl mx-auto flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-2 font-mono text-xs">
+                <span className="px-2 py-0.5 rounded-lg bg-purple-950/50 border border-purple-500/30 text-purple-300 font-bold">
+                  Style: {previewSong.styleNumber || '—'}
+                </span>
+                <span className="px-2 py-0.5 rounded-lg bg-emerald-950/50 border border-emerald-500/30 text-emerald-300 font-bold">
+                  {previewSong.tempo} BPM
+                </span>
+                <span className="px-2 py-0.5 rounded-lg bg-cyan-950/50 border border-cyan-500/30 text-cyan-300 font-bold">
+                  Key: {previewSong.originalKey || previewSong.chords || 'Em'}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {/* Sheet vs Lyrics Toggle if image exists */}
+                {previewSong.lyricsImage && (
+                  <div className="flex items-center gap-1 bg-slate-900 border border-cyan-500/30 rounded-lg p-0.5 font-mono text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewViewMode('sheet')}
+                      className={`px-2 py-0.5 rounded font-bold transition ${
+                        previewViewMode === 'sheet'
+                          ? 'bg-cyan-500 text-black shadow'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Sheet
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewViewMode('lyrics')}
+                      className={`px-2 py-0.5 rounded font-bold transition ${
+                        previewViewMode === 'lyrics'
+                          ? 'bg-cyan-500 text-black shadow'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Lyrics
+                    </button>
+                  </div>
+                )}
+
+                {/* Chords ON/OFF Toggle */}
+                {previewViewMode === 'lyrics' && (
+                  <button
+                    onClick={() => setPreviewShowChords(!previewShowChords)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold border transition ${
+                      previewShowChords
+                        ? 'bg-amber-600 text-white border-amber-400'
+                        : 'bg-slate-900 text-slate-400 border-white/10'
+                    }`}
+                  >
+                    Chords {previewShowChords ? 'ON' : 'OFF'}
+                  </button>
+                )}
+
+                {/* Language Switcher if both exist */}
+                {previewViewMode === 'lyrics' && previewSong.kannadaLyrics && previewSong.englishLyrics && (
+                  <div className="flex items-center gap-1 bg-slate-900 border border-white/10 rounded-lg p-0.5 text-xs">
+                    <button
+                      onClick={() => setPreviewLanguage('kannada')}
+                      className={`px-2 py-0.5 rounded font-semibold transition ${
+                        previewLanguage === 'kannada' ? 'bg-cyan-600 text-white' : 'text-slate-400'
+                      }`}
+                    >
+                      KN
+                    </button>
+                    <button
+                      onClick={() => setPreviewLanguage('english')}
+                      className={`px-2 py-0.5 rounded font-semibold transition ${
+                        previewLanguage === 'english' ? 'bg-amber-600 text-white' : 'text-slate-400'
+                      }`}
+                    >
+                      EN
+                    </button>
+                    <button
+                      onClick={() => setPreviewLanguage('both')}
+                      className={`px-2 py-0.5 rounded font-semibold transition ${
+                        previewLanguage === 'both' ? 'bg-indigo-600 text-white' : 'text-slate-400'
+                      }`}
+                    >
+                      Both
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Main Clean Lyrics Content */}
+          <main className="flex-1 overflow-y-auto px-5 py-4 mobile-scroll max-w-2xl mx-auto w-full">
+            {previewViewMode === 'sheet' && previewSong.lyricsImage ? (
+              <div className="flex flex-col items-center justify-center py-2">
+                <img
+                  src={previewSong.lyricsImage}
+                  alt={previewSong.title}
+                  className="max-w-full rounded-xl border border-white/10 shadow-2xl object-contain select-none"
+                  style={{ maxHeight: '82vh' }}
+                />
+              </div>
+            ) : (
+              <div className="font-sans leading-relaxed tracking-wide text-white font-medium text-base sm:text-lg select-text pb-20">
+                {/* Kannada Lyrics */}
+                {(previewLanguage === 'kannada' || previewLanguage === 'both') && (
+                  <div className="mb-6">
+                    {renderPreviewLyrics(previewSong.kannadaLyrics || previewSong.lyricsText, previewShowChords)}
+                  </div>
+                )}
+
+                {/* English Lyrics */}
+                {(previewLanguage === 'english' || previewLanguage === 'both') && (
+                  <div>
+                    {renderPreviewLyrics(previewSong.englishLyrics || previewSong.lyricsText, previewShowChords)}
+                  </div>
+                )}
+
+                {!previewSong.kannadaLyrics && !previewSong.englishLyrics && !previewSong.lyricsText && (
+                  previewSong.lyricsImage ? (
+                    <div className="flex flex-col items-center justify-center py-2">
+                      <img
+                        src={previewSong.lyricsImage}
+                        alt={previewSong.title}
+                        className="max-w-full rounded-xl border border-white/10 shadow-2xl object-contain select-none"
+                        style={{ maxHeight: '82vh' }}
+                      />
+                    </div>
+                  ) : (
+                    <div className="py-20 text-center text-slate-500 text-sm">
+                      No lyrics text available. Tap the pencil icon at the top to add lyrics or attach a sheet image.
+                    </div>
+                  )
+                )}
+              </div>
+            )}
+          </main>
+        </div>
+      )}
 
       {/* Add / Edit Song Full-screen Mobile Drawer */}
       {isFormOpen && (

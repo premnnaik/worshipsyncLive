@@ -122,6 +122,9 @@ export default function StageView({
   const [showChords, setShowChords] = useState(!isSingerOrSound);
   const [isFullScreen, setIsFullScreen] = useState(false);
 
+  // Sheet Image vs Lyrics Text mode
+  const [sheetViewMode, setSheetViewMode] = useState('sheet'); // 'sheet' | 'lyrics'
+
   // Recently opened songs for the Downside Box
   const [recentSongs, setRecentSongs] = useState([]);
   // Toggle Hide (> down) / Show (> up) for Recent / Live Songs tray
@@ -140,6 +143,13 @@ export default function StageView({
       setStyleInput(currentSong.styleNumber || '');
       setTempoInput(currentSong.tempo || 72);
       setChordsInput(currentSong.chords || 'Cm');
+
+      // If song has lyricsImage and no text lyrics, auto default to sheet mode
+      if (currentSong.lyricsImage && !currentSong.kannadaLyrics && !currentSong.englishLyrics && !currentSong.lyricsText) {
+        setSheetViewMode('sheet');
+      } else if (!currentSong.lyricsImage) {
+        setSheetViewMode('lyrics');
+      }
 
       // Update recently opened songs list
       setRecentSongs(prev => {
@@ -622,6 +632,33 @@ export default function StageView({
             </div>
 
             <div className="flex items-center gap-3 text-xs text-slate-300">
+              {currentSong.lyricsImage && (
+                <div className="flex items-center gap-1 bg-slate-900 border border-cyan-500/30 rounded-lg p-0.5 mr-1 font-mono text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() => setSheetViewMode('sheet')}
+                    className={`px-2 py-0.5 rounded font-bold transition ${
+                      sheetViewMode === 'sheet'
+                        ? 'bg-cyan-500 text-black shadow'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Sheet
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSheetViewMode('lyrics')}
+                    className={`px-2 py-0.5 rounded font-bold transition ${
+                      sheetViewMode === 'lyrics'
+                        ? 'bg-cyan-500 text-black shadow'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Lyrics
+                  </button>
+                </div>
+              )}
+
               <label className="flex items-center gap-1.5 cursor-pointer">
                 <input
                   type="checkbox"
@@ -887,24 +924,48 @@ export default function StageView({
               canSeeSuggestions && showSuggestionsTray ? 'pb-60' : 'pb-28'
             }`}
           >
-            {/* Show Kannada Lyrics if checked */}
-            {(language === 'kannada' || language === 'both') && (
-              <div className="mb-6">
-                {renderLyricsLines(currentSong.kannadaLyrics || currentSong.lyricsText)}
+            {sheetViewMode === 'sheet' && currentSong.lyricsImage ? (
+              <div className="flex flex-col items-center justify-center py-2 px-1">
+                <img
+                  src={currentSong.lyricsImage}
+                  alt={currentSong.title}
+                  className="max-w-full rounded-xl border border-white/10 shadow-2xl object-contain select-none"
+                  style={{ maxHeight: isFullScreen ? '90vh' : '72vh' }}
+                />
               </div>
-            )}
+            ) : (
+              <>
+                {/* Show Kannada Lyrics if checked */}
+                {(language === 'kannada' || language === 'both') && (
+                  <div className="mb-6">
+                    {renderLyricsLines(currentSong.kannadaLyrics || currentSong.lyricsText)}
+                  </div>
+                )}
 
-            {/* Show English Lyrics if checked */}
-            {(language === 'english' || language === 'both') && (
-              <div>
-                {renderLyricsLines(currentSong.englishLyrics || currentSong.lyricsText)}
-              </div>
-            )}
+                {/* Show English Lyrics if checked */}
+                {(language === 'english' || language === 'both') && (
+                  <div>
+                    {renderLyricsLines(currentSong.englishLyrics || currentSong.lyricsText)}
+                  </div>
+                )}
 
-            {!currentSong.kannadaLyrics && !currentSong.englishLyrics && !currentSong.lyricsText && (
-              <div className="py-20 text-center text-slate-500 text-sm">
-                No lyrics text available for this song.
-              </div>
+                {!currentSong.kannadaLyrics && !currentSong.englishLyrics && !currentSong.lyricsText && (
+                  currentSong.lyricsImage ? (
+                    <div className="flex flex-col items-center justify-center py-2 px-1">
+                      <img
+                        src={currentSong.lyricsImage}
+                        alt={currentSong.title}
+                        className="max-w-full rounded-xl border border-white/10 shadow-2xl object-contain select-none"
+                        style={{ maxHeight: isFullScreen ? '90vh' : '72vh' }}
+                      />
+                    </div>
+                  ) : (
+                    <div className="py-20 text-center text-slate-500 text-sm">
+                      No lyrics text available for this song.
+                    </div>
+                  )
+                )}
+              </>
             )}
           </div>
         ) : (
@@ -1077,17 +1138,34 @@ export default function StageView({
               </span>
             </div>
 
-            {/* Starting Lyrics Content */}
+            {/* Starting Lyrics / Sheet Content */}
             <div className="p-4 overflow-y-auto flex-1 font-sans text-sm sm:text-base leading-relaxed text-slate-200 space-y-1.5">
-              {getStartingLyricsLines(previewSong).map((line, idx) => (
-                <div key={idx} className="min-h-[1.4em]">
-                  {line}
+              {previewSong.lyricsImage ? (
+                <div className="flex flex-col items-center justify-center">
+                  <img
+                    src={previewSong.lyricsImage}
+                    alt={previewSong.title}
+                    className="max-h-52 rounded-lg object-contain shadow-md mb-2 border border-white/10"
+                  />
+                  {getStartingLyricsLines(previewSong).slice(0, 3).map((line, idx) => (
+                    <div key={idx} className="min-h-[1.4em] text-xs text-slate-300">
+                      {line}
+                    </div>
+                  ))}
                 </div>
-              ))}
-              {getStartingLyricsLines(previewSong).length === 0 && (
-                <div className="text-center py-8 text-slate-500 text-xs italic">
-                  No lyrics snippet preview available for this song.
-                </div>
+              ) : (
+                <>
+                  {getStartingLyricsLines(previewSong).map((line, idx) => (
+                    <div key={idx} className="min-h-[1.4em]">
+                      {line}
+                    </div>
+                  ))}
+                  {getStartingLyricsLines(previewSong).length === 0 && (
+                    <div className="text-center py-8 text-slate-500 text-xs italic">
+                      No lyrics snippet preview available for this song.
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
