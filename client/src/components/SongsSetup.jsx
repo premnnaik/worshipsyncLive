@@ -4,6 +4,8 @@ import {
   Image as ImageIcon, Trash2, Edit3, Check, X, Upload, Zap, Globe, Key
 } from 'lucide-react';
 import { getSongs, createSong, updateSong, deleteSong } from '../services/api';
+import { socket } from '../services/socket';
+import { getKannadaTitle } from '../utils/musicTransposer';
 
 const QUICK_KEYS = ['Em', 'Cm', 'Gm', 'Dm', 'Am', 'G', 'D', 'C', 'F', 'A', 'E', 'Bb'];
 
@@ -18,6 +20,7 @@ export default function SongsSetup({ onBack }) {
 
   // Form State
   const [title, setTitle] = useState('');
+  const [kannadaTitle, setKannadaTitle] = useState('');
   const [songNumber, setSongNumber] = useState('');
   const [category, setCategory] = useState('kannada'); // 'kannada' | 'english'
   const [type, setType] = useState('Worship'); // 'Worship' | 'Praise'
@@ -38,6 +41,18 @@ export default function SongsSetup({ onBack }) {
 
   useEffect(() => {
     fetchSongsList();
+
+    // Instant real-time sync across all connected stage devices when a song is added/edited
+    const handleSongsUpdated = (updatedSongs) => {
+      if (Array.isArray(updatedSongs)) {
+        setSongs(updatedSongs);
+      }
+    };
+    socket.on('songs:updated', handleSongsUpdated);
+
+    return () => {
+      socket.off('songs:updated', handleSongsUpdated);
+    };
   }, []);
 
   const fetchSongsList = async () => {
@@ -54,6 +69,7 @@ export default function SongsSetup({ onBack }) {
 
   const resetForm = () => {
     setTitle('');
+    setKannadaTitle('');
     setSongNumber('');
     setCategory('kannada');
     setType('Worship');
@@ -85,6 +101,7 @@ export default function SongsSetup({ onBack }) {
   const handleEdit = (song) => {
     setEditingSong(song);
     setTitle(song.title || '');
+    setKannadaTitle(song.kannadaTitle || getKannadaTitle(song) || '');
     setSongNumber(song.songNumber ? String(song.songNumber) : '');
     const isEng = song.category === 'english' || song.id?.includes('way-maker') || song.id?.includes('10000');
     setCategory(isEng ? 'english' : 'kannada');
@@ -171,6 +188,7 @@ export default function SongsSetup({ onBack }) {
     
     const payload = {
       title: title.trim(),
+      kannadaTitle: kannadaTitle.trim(),
       songNumber: songNumber.trim(),
       category,
       type,
@@ -360,7 +378,10 @@ export default function SongsSetup({ onBack }) {
                         </div>
                       </div>
 
-                      <h3 className="text-base font-bold text-white mb-2">{song.title}</h3>
+                      {/* Primary Title: Kannada text on top as requested in user sketch! */}
+                      <h3 className="text-base sm:text-lg font-bold text-white mb-2">
+                        {song.kannadaTitle || getKannadaTitle(song) || song.title}
+                      </h3>
 
                       {/* Metadata Pills */}
                       <div className="flex flex-wrap gap-1.5 text-xs font-mono mb-2">
@@ -377,8 +398,10 @@ export default function SongsSetup({ onBack }) {
                         </span>
                       </div>
 
-                      <div className="text-[11px] text-slate-400 truncate">
-                        {song.kannadaLyrics?.split('\n')[1] || song.kannadaLyrics?.slice(0, 70) || song.lyricsText?.slice(0, 70) || 'Lyrics available'}
+                      {/* English Transliteration Title moved down! */}
+                      <div className="text-xs text-slate-300 font-medium truncate flex items-center gap-1.5">
+                        <span className="text-slate-500 text-[10px] font-mono uppercase tracking-wider">English:</span>
+                        <span className="text-slate-200 font-semibold">{song.title}</span>
                       </div>
                     </div>
                   ))}
@@ -486,20 +509,50 @@ export default function SongsSetup({ onBack }) {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-3.5">
-              {/* Row 1: Title */}
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1">
-                  Song Title <span className="text-rose-400">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Aashrayavu Neene Yesayya"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl glass-input text-white text-sm outline-none font-bold"
-                />
-              </div>
+              {/* Row 1: Title(s) */}
+              {category === 'kannada' ? (
+                <div className="space-y-2.5">
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-cyan-300 mb-1">
+                      Kannada Title (ಕನ್ನಡ ಶೀರ್ಷಿಕೆ)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. ಆಶ್ರಯವು ನೀನೇ ಯೇಸಯ್ಯ (Optional, auto-fills from lyrics)"
+                      value={kannadaTitle}
+                      onChange={(e) => setKannadaTitle(e.target.value)}
+                      className="w-full px-3.5 py-2 rounded-xl glass-input text-white text-sm outline-none font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1">
+                      English Transliteration <span className="text-rose-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Aashrayavu Neene Yesayya"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      className="w-full px-3.5 py-2 rounded-xl glass-input text-white text-sm outline-none font-bold"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-300 mb-1">
+                    Song Title <span className="text-rose-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. 10,000 Reasons"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl glass-input text-white text-sm outline-none font-bold"
+                  />
+                </div>
+              )}
 
               {/* Row 2: Song Number (#) & Language Category */}
               <div className="grid grid-cols-2 gap-3">

@@ -14,23 +14,8 @@
     "createdAt": "2026-11-12T13:56:42.295Z",
     "category": "kannada",
     "updatedAt": "2026-11-19T10:38:34.920Z",
-    "originalKey": "Em"
-  },
-  {
-    "id": "song-hosanna",
-    "songNumber": "04",
-    "title": "Hosanna Hosanna",
-    "type": "Praise",
-    "tempo": 120,
-    "styleNumber": "88",
-    "chords": "G",
-    "kannadaLyrics": "G                 C\nಹೋಸನ್ನಾ ಹೋಸನ್ನಾ\nD                 G\nಉನ್ನತದಲ್ಲಿ ಹೋಸನ್ನಾ ||2\n\nC                 D\nರಾಜಾಧಿ ರಾಜನಿಗೆ ಹೋಸನ್ನಾ\nC                 D\nಕರ್ತಾದಿ ಕರ್ತನಿಗೆ ಹೋಸನ್ನಾ ||2\n\nG                 C\nಸ್ತುತಿ ಸ್ತುತಿ ಯೇಸುವಿಗೆ\nD                 G\nಸದಾಕಾಲ ಸ್ತುತಿಯು ಆತನಿಗೆ",
-    "englishLyrics": "G                 C\nHosanna Hosanna\nD                 G\nHosanna in the highest ||2\n\nC                 D\nHosanna to the King of Kings\nC                 D\nHosanna to the Lord of Lords ||2",
-    "lyricsText": "G                 C\nಹೋಸನ್ನಾ ಹೋಸನ್ನಾ\nD                 G\nಉನ್ನತದಲ್ಲಿ ಹೋಸನ್ನಾ",
-    "lyricsImage": null,
-    "createdAt": "2026-11-11T18:00:00.000Z",
-    "category": "kannada",
-    "originalKey": "G"
+    "originalKey": "Em",
+    "kannadaTitle": "ಆಶ್ರಯವು ನೀನೇ ಯೇಸಯ್ಯ"
   },
   {
     "id": "song-02-mahimeya-arasane",
@@ -46,7 +31,8 @@
     "lyricsImage": null,
     "createdAt": "2026-11-12T13:56:42.295Z",
     "category": "kannada",
-    "originalKey": "Em"
+    "originalKey": "Em",
+    "kannadaTitle": "ಮಹಿಮೆಯ ಅರಸನೆ ನಿನ್ನ ಆತ್ಮದಿ ಆರಾಧಿಸುವೆ"
   },
   {
     "id": "song-nan-santoshakke",
@@ -63,7 +49,8 @@
     "createdAt": "2026-11-11T17:54:35.846Z",
     "updatedAt": "2026-11-12T14:23:58.595Z",
     "category": "kannada",
-    "originalKey": "Gm"
+    "originalKey": "Gm",
+    "kannadaTitle": "ನನ್ ಸಂತೋಷಕ್ಕೆ ಕಾರಣ ನೀವೇ ಯೇಸಯ್ಯ"
   },
   {
     "id": "song-04-nanna-kaandavane",
@@ -79,7 +66,8 @@
     "lyricsImage": null,
     "createdAt": "2026-11-12T13:56:42.295Z",
     "category": "kannada",
-    "originalKey": "Cm"
+    "originalKey": "Cm",
+    "kannadaTitle": "ನನ್ನ ಕಾಣ್ಡವನೇ"
   },
   {
     "id": "song-05-paralokadalli-iruva-tande",
@@ -95,7 +83,8 @@
     "lyricsImage": null,
     "createdAt": "2026-11-12T13:56:42.295Z",
     "category": "kannada",
-    "originalKey": "D"
+    "originalKey": "D",
+    "kannadaTitle": "ಪರಲೋಕದಲ್ಲಿ ಇರುವ ತಂದೆ"
   },
   {
     "id": "song-01-shree-yesu-naama",
@@ -111,7 +100,8 @@
     "lyricsImage": null,
     "createdAt": "2026-11-12T13:56:42.294Z",
     "category": "kannada",
-    "originalKey": "Em"
+    "originalKey": "Em",
+    "kannadaTitle": "ಶ್ರೀ ಯೇಸು ನಾಮ ಅತಿಶಯ ನಾಮ"
   },
   {
     "id": "song-tande-deva",
@@ -127,7 +117,8 @@
     "lyricsImage": null,
     "createdAt": "2026-11-11T17:54:35.846Z",
     "category": "kannada",
-    "originalKey": "G"
+    "originalKey": "G",
+    "kannadaTitle": "ತಂದೆ ದೇವಾ ತಂದೆ ದೇವಾ"
   },
   {
     "id": "song-10000-reasons",

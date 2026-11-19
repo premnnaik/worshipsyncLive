@@ -308,6 +308,29 @@ function getLocalNetworkIp() {
 
 const app = express();
 const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: { origin: '*', methods: ['GET', 'POST', 'PUT', 'DELETE'] },
+  maxHttpBufferSize: 35e6,
+  pingInterval: 10000, // Ping every 10s to keep connection alive indefinitely
+  pingTimeout: 60000   // Tolerate up to 60s of network jitter for 2+ hour sessions
+});
+
+function isChordLine(line) {
+  const t = line.trim();
+  if (!t || /[^\x00-\x7F]/.test(t) || /[[\].,!?|:;]/.test(t)) return false;
+  return t.split(/\s+/).every(tok => /^[A-G][#b]?(?:m|min|maj|dim|aug|sus|add)?[0-9]*(?:\/[A-G][#b]?)?$/.test(tok));
+}
+
+function extractFirstLyricsLine(text) {
+  if (!text) return '';
+  for (const l of text.split('\n')) {
+    const t = l.trim();
+    if (t && !isChordLine(t) && !(t.startsWith('[') && t.endsWith(']'))) {
+      return t.replace(/\s*\|\|\s*\d+/, '').replace(/\s*-\s*\d+/, '').trim();
+    }
+  }
+  return '';
+}
 
 app.use(cors());
 app.use(express.json({ limit: '35mb' }));
@@ -344,7 +367,7 @@ app.get('/api/songs', (req, res) => {
 
 app.post('/api/songs', (req, res) => {
   const { 
-    title, songNumber, type, tempo, styleNumber, chords, 
+    title, kannadaTitle, songNumber, type, tempo, styleNumber, chords, 
     originalKey, category, lyricsText, kannadaLyrics, englishLyrics, lyricsImage 
   } = req.body;
   if (!title) {
@@ -359,11 +382,13 @@ app.post('/api/songs', (req, res) => {
   // Auto-detect category if not explicitly given
   const isKannada = /[\u0C80-\u0CFF]/.test((kannadaLyrics || '') + (lyricsText || ''));
   const songCat = category ? String(category).toLowerCase() : (isKannada ? 'kannada' : 'english');
+  const finalKannadaTitle = kannadaTitle ? String(kannadaTitle).trim() : (songCat === 'kannada' ? extractFirstLyricsLine(kannadaLyrics || lyricsText) : '');
 
   const newSong = {
     id: `song-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
     songNumber: songNumber ? String(songNumber).trim() : nextNum,
     title: title.trim(),
+    kannadaTitle: finalKannadaTitle,
     type: type === 'Praise' ? 'Praise' : 'Worship',
     tempo: Number(tempo) || 72,
     styleNumber: String(styleNumber || '').trim(),
@@ -379,13 +404,18 @@ app.post('/api/songs', (req, res) => {
 
   songs.unshift(newSong);
   saveSongs(songs);
+  
+  // Broadcast to all connected musicians and stage screens in real time
+  io.emit('songs:updated', loadSongs());
+  console.log(`[Song Added for All] "${newSong.title}" (#${newSong.songNumber})`);
+
   res.status(201).json(newSong);
 });
 
 app.put('/api/songs/:id', (req, res) => {
   const { id } = req.params;
   const { 
-    title, songNumber, type, tempo, styleNumber, chords, 
+    title, kannadaTitle, songNumber, type, tempo, styleNumber, chords, 
     originalKey, category, lyricsText, kannadaLyrics, englishLyrics, lyricsImage 
   } = req.body;
   const songs = loadSongs();
@@ -395,24 +425,33 @@ app.put('/api/songs/:id', (req, res) => {
     return res.status(404).json({ error: 'Song not found' });
   }
 
+  const existing = songs[index];
+  const newCat = category !== undefined ? String(category).toLowerCase() : existing.category;
+  const newKannadaLyrics = kannadaLyrics !== undefined ? kannadaLyrics : existing.kannadaLyrics;
+  const newKannadaTitle = kannadaTitle !== undefined 
+    ? String(kannadaTitle).trim() 
+    : (existing.kannadaTitle || (newCat === 'kannada' ? extractFirstLyricsLine(newKannadaLyrics) : ''));
+
   songs[index] = {
-    ...songs[index],
-    title: title !== undefined ? title.trim() : songs[index].title,
-    songNumber: songNumber !== undefined ? String(songNumber).trim() : songs[index].songNumber,
-    type: type !== undefined ? (type === 'Praise' ? 'Praise' : 'Worship') : songs[index].type,
-    tempo: tempo !== undefined ? Number(tempo) : songs[index].tempo,
-    styleNumber: styleNumber !== undefined ? String(styleNumber).trim() : songs[index].styleNumber,
-    chords: chords !== undefined ? String(chords).trim() : songs[index].chords,
-    originalKey: originalKey !== undefined ? String(originalKey).trim() : (songs[index].originalKey || songs[index].chords),
-    category: category !== undefined ? String(category).toLowerCase() : songs[index].category,
-    lyricsText: lyricsText !== undefined ? String(lyricsText).trim() : songs[index].lyricsText,
-    kannadaLyrics: kannadaLyrics !== undefined ? kannadaLyrics : songs[index].kannadaLyrics,
-    englishLyrics: englishLyrics !== undefined ? englishLyrics : songs[index].englishLyrics,
-    lyricsImage: lyricsImage !== undefined ? lyricsImage : songs[index].lyricsImage,
+    ...existing,
+    title: title !== undefined ? title.trim() : existing.title,
+    kannadaTitle: newKannadaTitle,
+    songNumber: songNumber !== undefined ? String(songNumber).trim() : existing.songNumber,
+    type: type !== undefined ? (type === 'Praise' ? 'Praise' : 'Worship') : existing.type,
+    tempo: tempo !== undefined ? Number(tempo) : existing.tempo,
+    styleNumber: styleNumber !== undefined ? String(styleNumber).trim() : existing.styleNumber,
+    chords: chords !== undefined ? String(chords).trim() : existing.chords,
+    originalKey: originalKey !== undefined ? String(originalKey).trim() : (existing.originalKey || existing.chords),
+    category: newCat,
+    lyricsText: lyricsText !== undefined ? String(lyricsText).trim() : existing.lyricsText,
+    kannadaLyrics: newKannadaLyrics,
+    englishLyrics: englishLyrics !== undefined ? englishLyrics : existing.englishLyrics,
+    lyricsImage: lyricsImage !== undefined ? lyricsImage : existing.lyricsImage,
     updatedAt: new Date().toISOString()
   };
 
   saveSongs(songs);
+  io.emit('songs:updated', loadSongs());
   res.json(songs[index]);
 });
 
@@ -427,6 +466,7 @@ app.delete('/api/songs/:id', (req, res) => {
   }
 
   saveSongs(songs);
+  io.emit('songs:updated', loadSongs());
   res.json({ success: true, id });
 });
 
@@ -457,12 +497,7 @@ if (fs.existsSync(clientDistPath)) {
   });
 }
 
-const io = new Server(httpServer, {
-  cors: { origin: '*', methods: ['GET', 'POST'] },
-  maxHttpBufferSize: 35e6,
-  pingInterval: 10000, // Ping every 10s to keep connection alive indefinitely
-  pingTimeout: 60000   // Tolerate up to 60s of network jitter for 2+ hour sessions
-});
+
 
 io.on('connection', (socket) => {
   console.log(`[Socket Connected] ID: ${socket.id}`);

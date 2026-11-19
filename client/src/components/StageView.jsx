@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Search, ArrowLeft, ArrowRight, ChevronDown, Play, Pause, 
+  Search, ArrowLeft, ArrowRight, ChevronDown, ChevronUp, Play, Pause, 
   Maximize2, Minimize2, Share2, Music, Check, Sparkles, Send, X, AlertCircle, Radio
 } from 'lucide-react';
 import { useWakeLock } from '../hooks/useWakeLock';
@@ -10,7 +10,8 @@ import {
   isChordLine, 
   isMinorKey,
   detectSongKey,
-  shouldUseFlatScale
+  shouldUseFlatScale,
+  getKannadaTitle
 } from '../utils/musicTransposer';
 
 // Major and Minor Key lists supporting standard worship keys and enharmonics
@@ -123,6 +124,8 @@ export default function StageView({
 
   // Recently opened songs for the Downside Box
   const [recentSongs, setRecentSongs] = useState([]);
+  // Toggle Hide (> down) / Show (> up) for Recent / Live Songs tray
+  const [showSuggestionsTray, setShowSuggestionsTray] = useState(true);
 
   // Mini Window Preview Modal state for clicking any song card
   const [previewSong, setPreviewSong] = useState(null);
@@ -444,10 +447,19 @@ export default function StageView({
                                 }`}
                               >
                                 <div className="flex items-center gap-2 truncate">
-                                  <span className="font-mono text-cyan-400 text-[11px] font-bold">
+                                  <span className="font-mono text-cyan-400 text-[11px] font-bold shrink-0">
                                     {s.songNumber ? `#${s.songNumber}` : '•'}
                                   </span>
-                                  <span className="truncate">{s.title}</span>
+                                  <div className="flex flex-col truncate">
+                                    <span className="truncate font-semibold text-white">
+                                      {s.kannadaTitle || getKannadaTitle(s) || s.title}
+                                    </span>
+                                    {(s.kannadaTitle || getKannadaTitle(s)) && (
+                                      <span className="text-[10px] text-slate-400 truncate">
+                                        {s.title}
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                                 <div className="flex items-center gap-1.5 shrink-0">
                                   <span className={`text-[9px] font-bold uppercase px-1.5 py-0.2 rounded font-mono ${
@@ -491,10 +503,19 @@ export default function StageView({
                                 }`}
                               >
                                 <div className="flex items-center gap-2 truncate">
-                                  <span className="font-mono text-cyan-400 text-[11px] font-bold">
+                                  <span className="font-mono text-cyan-400 text-[11px] font-bold shrink-0">
                                     {s.songNumber ? `#${s.songNumber}` : '•'}
                                   </span>
-                                  <span className="truncate">{s.title}</span>
+                                  <div className="flex flex-col truncate">
+                                    <span className="truncate font-semibold text-white">
+                                      {s.kannadaTitle || getKannadaTitle(s) || s.title}
+                                    </span>
+                                    {(s.kannadaTitle || getKannadaTitle(s)) && (
+                                      <span className="text-[10px] text-slate-400 truncate">
+                                        {s.title}
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                                 <div className="flex items-center gap-1.5 shrink-0">
                                   <span className={`text-[9px] font-bold uppercase px-1.5 py-0.2 rounded font-mono ${
@@ -584,8 +605,15 @@ export default function StageView({
                 {currentSong.type}
               </span>
               <h1 className="text-base sm:text-lg font-black text-white truncate">
-                {currentSong.title}
+                {(language === 'kannada' || language === 'both') && (currentSong.kannadaTitle || getKannadaTitle(currentSong))
+                  ? (currentSong.kannadaTitle || getKannadaTitle(currentSong))
+                  : currentSong.title}
               </h1>
+              {(language === 'kannada' || language === 'both') && (currentSong.kannadaTitle || getKannadaTitle(currentSong)) && (
+                <span className="text-xs text-slate-400 truncate hidden sm:inline">
+                  ({currentSong.title})
+                </span>
+              )}
               {currentSong.songNumber && (
                 <span className="text-base sm:text-lg font-mono font-bold text-slate-400">
                   {currentSong.songNumber}
@@ -856,7 +884,7 @@ export default function StageView({
           <div 
             style={{ fontSize: `${fontSize}px` }}
             className={`font-sans leading-relaxed tracking-wide text-white font-medium select-text ${
-              canSeeSuggestions ? 'pb-60' : 'pb-28'
+              canSeeSuggestions && showSuggestionsTray ? 'pb-60' : 'pb-28'
             }`}
           >
             {/* Show Kannada Lyrics if checked */}
@@ -888,21 +916,30 @@ export default function StageView({
       </main>
 
       {/* 5. DOWNSIDE BOX (1/4 OF PHONE SCREEN - RECENTLY VIEWED & LIVE CARDS)
-          From User Sketch: [ Song 1 ] [ Song 2 ] [ Song 3 ] [ Song 4 ]
+          Can be toggled down (> down) to hide and up (> up) to expand!
           Visible ONLY for [Lead Singer, Drums, Keyboard, Admin]!
-          For other users like "Singer" and "Sound", this box is COMPLETELY HIDDEN!
       */}
-      {canSeeSuggestions && (
-        <div className="fixed bottom-[54px] left-0 right-0 z-30 px-3 py-2 bg-[#090b10]/95 backdrop-blur-2xl border-t border-white/10 shadow-2xl h-[24vh] max-h-[165px] min-h-[130px] flex flex-col justify-between">
-          {/* Section Header */}
+      {canSeeSuggestions && showSuggestionsTray && (
+        <div className="fixed bottom-[54px] left-0 right-0 z-30 px-3 py-2 bg-[#090b10]/95 backdrop-blur-2xl border-t border-white/10 shadow-2xl h-[24vh] max-h-[165px] min-h-[130px] flex flex-col justify-between animate-fadeIn">
+          {/* Section Header with [ > Down / Hide ] Toggle */}
           <div className="flex items-center justify-between px-1 mb-1.5 shrink-0">
             <div className="flex items-center gap-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-slate-400">
               <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
               <span>{canSuggest ? "Recent / Live (Tap to Suggest):" : "Recent / Live Songs:"}</span>
             </div>
-            <span className="text-[10px] text-slate-500 font-mono">
-              {suggestionCards.length} cards available
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-slate-500 font-mono">
+                {suggestionCards.length} cards
+              </span>
+              <button
+                onClick={() => setShowSuggestionsTray(false)}
+                className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-white/10 text-slate-300 hover:text-white text-[11px] font-bold transition active-press"
+                title="Hide Recent Songs Down (> down)"
+              >
+                <span>Hide</span>
+                <ChevronDown className="w-3.5 h-3.5 text-cyan-400" />
+              </button>
+            </div>
           </div>
 
           {/* Cards Horizontal Scrolling Row (at least 3-4 cards visible) */}
@@ -910,6 +947,7 @@ export default function StageView({
             {suggestionCards.map((song, i) => {
               const isCurrent = currentSong?.id === song.id;
               const snippet = getStartingLyricsSnippet(song);
+              const cardKannadaTitle = song.kannadaTitle || (song.category !== 'english' && song.kannadaLyrics ? getKannadaTitle(song) : null);
               return (
                 <button
                   key={song.id || i}
@@ -935,14 +973,14 @@ export default function StageView({
                     </span>
                   </div>
 
-                  {/* Middle: Title */}
+                  {/* Middle: Title (Kannada title on top if available!) */}
                   <div className="font-sans font-bold text-xs text-white line-clamp-2 leading-snug mb-1">
-                    {song.title}
+                    {cardKannadaTitle || song.title}
                   </div>
 
-                  {/* Bottom: Starting lyrics snippet preview */}
+                  {/* Bottom: Subtitle / English transliteration or snippet */}
                   <div className="text-[10px] text-slate-400 truncate font-sans italic w-full">
-                    {snippet || 'Tap for preview →'}
+                    {cardKannadaTitle ? song.title : (snippet || 'Tap for preview →')}
                   </div>
 
                   {isCurrent && (
@@ -954,6 +992,20 @@ export default function StageView({
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* MINIMIZED RECENT SONGS TRAY DOCKED RIGHT ABOVE FOOTER (CLICK TO EXPAND > UP) */}
+      {canSeeSuggestions && !showSuggestionsTray && (
+        <div className="fixed bottom-[52px] left-0 right-0 z-30 flex justify-center pointer-events-none">
+          <button
+            onClick={() => setShowSuggestionsTray(true)}
+            className="pointer-events-auto px-4 py-1.5 rounded-t-xl bg-[#090b10] hover:bg-slate-900 border-t border-x border-cyan-500/50 text-cyan-300 text-xs font-bold shadow-2xl flex items-center gap-1.5 transition active-press backdrop-blur-2xl animate-fadeIn"
+            title="Open Recent / Live Songs Tray (> up)"
+          >
+            <ChevronUp className="w-4 h-4 text-cyan-400 animate-bounce" />
+            <span>Recent / Live Songs ({suggestionCards.length})</span>
+          </button>
         </div>
       )}
 

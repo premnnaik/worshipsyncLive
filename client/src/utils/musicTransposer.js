@@ -135,3 +135,19 @@ export function detectSongKey(song) {
   }
   return song?.chords || 'C';
 }
+
+// Extract primary Kannada title from metadata or lyrics
+export function getKannadaTitle(song) {
+  if (!song) return null;
+  if (song.kannadaTitle) return song.kannadaTitle;
+  const isEng = song.category === 'english' || song.id?.includes('way-maker') || song.id?.includes('10000');
+  if (isEng) return null;
+  const text = song.kannadaLyrics || song.lyricsText || '';
+  for (const line of text.split('\n')) {
+    const trimmed = line.trim();
+    if (trimmed && !isChordLine(trimmed) && !(trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+      return trimmed.replace(/\s*\|\|\s*\d+/, '').replace(/\s*-\s*\d+/, '').trim();
+    }
+  }
+  return null;
+}

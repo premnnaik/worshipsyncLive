@@ -55,6 +55,12 @@ export default function AdminLive({ room, onExitRoom }) {
       setSuggestedSongAlert(data);
     };
 
+    const handleSongsUpdated = (updatedSongs) => {
+      if (Array.isArray(updatedSongs)) {
+        setAllSongs(updatedSongs);
+      }
+    };
+
     // Auto-reconnect & restore admin session after Wi-Fi blip or mobile sleep
     const handleSocketConnect = async () => {
       try {
@@ -89,6 +95,7 @@ export default function AdminLive({ room, onExitRoom }) {
     socket.on('room:song_changed', handleSongChanged);
     socket.on('room:cue_updated', handleCueUpdated);
     socket.on('room:song_suggested', handleSongSuggested);
+    socket.on('songs:updated', handleSongsUpdated);
 
     return () => {
       clearInterval(syncInterval);
@@ -97,6 +104,7 @@ export default function AdminLive({ room, onExitRoom }) {
       socket.off('room:song_changed', handleSongChanged);
       socket.off('room:cue_updated', handleCueUpdated);
       socket.off('room:song_suggested', handleSongSuggested);
+      socket.off('songs:updated', handleSongsUpdated);
     };
   }, [room.code, room.hostName]);
 
