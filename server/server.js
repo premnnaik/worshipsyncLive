@@ -16,243 +16,16 @@ if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
-// Pre-seeded songs matching user's uploaded images
-const defaultSeedSongs = [
-  {
-    id: "song-nan-santoshakke",
-    songNumber: "6818",
-    title: "Nan Santoshakke Karana",
-    type: "Worship",
-    tempo: 108,
-    styleNumber: "75",
-    chords: "Gm",
-    kannadaLyrics: `Gm
-ನನ್ ಸಂತೋಷಕ್ಕೆ ಕಾರಣ ನೀವೇ ಯೇಸಯ್ಯ
-F
-ನೀವೇ ಯೇಸಯ್ಯ ನನ್ನ ಆಧಾರ ನೀನೇ
-Gm
-ನನ್ ಸಮೃದ್ಧಿಗೆ ಕಾರಣ ನೀವೇ ಯೇಸಯ್ಯ
-F
-ನೀವೇ ಯೇಸಯ್ಯ ನನ್ ಐಶ್ವರ್ಯ ನೀನೇ
-
-Gm
-ನಿನ್ ರಕ್ತಕೋಟೆಯಲ್ಲಿ ನನ್ನ ಮರೆಮಾಡಿದೆ
-F               Cm
-ಮರೆಮಾಡಿದೆ ದೇವಾ ಕಾಪಾಡಿದೆ
-Gm              Dm
-ನಿನ್ ಶಿಲುಬೆಯ ನೆರಳಲ್ಲಿ ಮರೆಮಾಡಿದೆ
-F               Cm
-ಮರೆಮಾಡಿದೆ ದೇವಾ ಕಾಪಾಡಿದೆ
-
-Gm
-ಸ್ತೋತ್ರ ಸ್ತೋತ್ರ ಯೇಸಯ್ಯ
-F             Gm
-ಸ್ತೋತ್ರ ಸ್ತೋತ್ರ ಯೇಸಯ್ಯ
-
-Gm             G7              Am
-1. ನಿನ್ನ ಪ್ರೀತಿಯ ವರ್ಣಿಸಲು ನನ್ನಿಂದ ಆಗದಯ್ಯ
-Am                            D
-ನಿನ್ನ ಕಾರ್ಯವ ವಿವರಿಸಲು ನನ್ನ ಬದುಕು ಸಾಲದಯ್ಯ
-D                             Gm
-ಬೇಟೆಗಾರನ ಬಲೆಯಿಂದಲೂ ಕಾಪಾಡಿದವನು ನೀವೇ ಯೇಸಯ್ಯ`,
-    englishLyrics: `Gm
-Nan santoshakke karana neeve Yesayya
-F
-Neeve Yesayya nanna aadhara neene
-Gm
-Nan samruddhige karana neeve Yesayya
-F
-Neeve Yesayya nan aishwarya neene
-
-Gm
-Nin rakthakotheyalli nanna maremaadide
-F               Cm
-Maremaadide Deva kaapadide
-Gm              Dm
-Nin shilubeya neralalli maremaadide
-F               Cm
-Maremaadide Deva kaapadide
-
-Gm
-Stotra stotra Yesayya
-F             Gm
-Stotra stotra Yesayya`,
-    lyricsText: `Gm
-ನನ್ ಸಂತೋಷಕ್ಕೆ ಕಾರಣ ನೀವೇ ಯೇಸಯ್ಯ
-F
-ನೀವೇ ಯೇಸಯ್ಯ ನನ್ನ ಆಧಾರ ನೀನೇ
-Gm
-ನನ್ ಸಮೃದ್ಧಿಗೆ ಕಾರಣ ನೀವೇ ಯೇಸಯ್ಯ
-F
-ನೀವೇ ಯೇಸಯ್ಯ ನನ್ ಐಶ್ವರ್ಯ ನೀನೇ`,
-    lyricsImage: null,
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: "song-tande-deva",
-    songNumber: "5052",
-    title: "Tande Deva Tande Deva Nanna",
-    type: "Worship",
-    tempo: 75,
-    styleNumber: "42",
-    chords: "G",
-    kannadaLyrics: `G
-ತಂದೆ ದೇವಾ ತಂದೆ ದೇವಾ
-Am
-ನನ್ನ ಸರ್ವವು ನೀನಯ್ಯ
-D              G
-ನೀವಿದ್ದರೆ ನನಗೆ ಸಾಕು ||2
-
-G                    C
-ನನ್ನ ಪ್ರಿಯನೇ ನನ್ನ ಪ್ರಾಣವೇ ನಿನ್ನಾರಾಧಿಸುವೆನು
-Am                   D
-ನನ್ ಜೀವವೇ ನನ್ನ ಸ್ನೇಹವೇ ನಿನ್ನಾರಾಧಿಸುವೆನು
-
-G              G7              Am
-1. ನಿನ್ನ ಪ್ರೀತಿಯ ವರ್ಣಿಸಲು ನನ್ನಿಂದ ಆಗದಯ್ಯ
-Am                            D
-ನಿನ್ನ ಕಾರ್ಯವ ವಿವರಿಸಲು ನನ್ನ ಬದುಕು ಸಾಲದಯ್ಯ
-Em   Bm                       Am
-ತಂದೆ ದೇವಾ ನನ್ನ ಆನಂದವೇ
-C              D              G
-ನೀನ್ ಬಳಿಯಲ್ಲೇ - ನನಗೆ ಸುಖವು
-
-G              G7              Am
-2. ನನ್ನ ಪ್ರಾಣ ಸ್ನೇಹಿತನೇ - ನಿನ್ ಸನ್ನಿಧಿ ಪರಿಮಳವೇ
-Am                            D
-ಸಿಹಿಯಾದ ಜೇನಿಗಿಂತ - ನಿನ್ನ ಪ್ರೀತಿ ಮಧುರವಯ್ಯ
-Em   Bm                       Am
-ತಂದೆ ದೇವಾ ನನ್ನ ಆನಂದವೇ
-C              D              G
-ನೀನ್ ಬಳಿಯಲ್ಲೇ - ನನಗೆ ಸುಖವು`,
-    englishLyrics: `G
-Tande Deva Tande Deva
-Am
-Nanna sarvavu neenayya
-D              G
-Neeviddare nanage saaku ||2
-
-G                    C
-Nanna priyane nanna praanave ninnaaraadhisuvenu
-Am                   D
-Nan jeevave nanna snehave ninnaaraadhisuvenu
-
-G              G7              Am
-1. Ninna preethiya varnisalu nanninda aagadayya
-Am                            D
-Ninna kaaryava vivarisalu nanna baduku saaladayya
-Em   Bm                       Am
-Tande Deva nanna aanandave
-C              D              G
-Neen baliyalle - nanage sukhavu`,
-    lyricsText: `G
-ತಂದೆ ದೇವಾ ತಂದೆ ದೇವಾ
-Am
-ನನ್ನ ಸರ್ವವು ನೀನಯ್ಯ
-D              G
-ನೀವಿದ್ದರೆ ನನಗೆ ಸಾಕು ||2`,
-    lyricsImage: null,
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: "song-way-maker",
-    songNumber: "03",
-    title: "Way Maker",
-    type: "Worship",
-    tempo: 68,
-    styleNumber: "142",
-    chords: "E",
-    kannadaLyrics: "",
-    englishLyrics: `E             B
-You are here, moving in our midst
-C#m           A
-I worship You, I worship You
-E             B
-You are here, working in this place
-C#m           A
-I worship You, I worship You
-
-E
-(You are) Way Maker, Miracle Worker
-B
-Promise Keeper, Light in the darkness
-C#m                 A
-My God, that is who You are`,
-    lyricsText: `E             B
-You are here, moving in our midst
-C#m           A
-I worship You, I worship You`,
-    lyricsImage: null,
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: "song-hosanna",
-    songNumber: "04",
-    title: "Hosanna Hosanna",
-    type: "Praise",
-    tempo: 120,
-    styleNumber: "88",
-    chords: "G",
-    kannadaLyrics: `G                 C
-ಹೋಸನ್ನಾ ಹೋಸನ್ನಾ
-D                 G
-ಉನ್ನತದಲ್ಲಿ ಹೋಸನ್ನಾ ||2
-
-C                 D
-ರಾಜಾಧಿ ರಾಜನಿಗೆ ಹೋಸನ್ನಾ
-C                 D
-ಕರ್ತಾದಿ ಕರ್ತನಿಗೆ ಹೋಸನ್ನಾ ||2
-
-G                 C
-ಸ್ತುತಿ ಸ್ತುತಿ ಯೇಸುವಿಗೆ
-D                 G
-ಸದಾಕಾಲ ಸ್ತುತಿಯು ಆತನಿಗೆ`,
-    englishLyrics: `G                 C
-Hosanna Hosanna
-D                 G
-Hosanna in the highest ||2
-
-C                 D
-Hosanna to the King of Kings
-C                 D
-Hosanna to the Lord of Lords ||2`,
-    lyricsText: `G                 C
-ಹೋಸನ್ನಾ ಹೋಸನ್ನಾ
-D                 G
-ಉನ್ನತದಲ್ಲಿ ಹೋಸನ್ನಾ`,
-    lyricsImage: null,
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: "song-10000-reasons",
-    songNumber: "05",
-    title: "10,000 Reasons",
-    type: "Praise",
-    tempo: 72,
-    styleNumber: "96",
-    chords: "G",
-    kannadaLyrics: `G       C         G         D
-ನನ್ನಾತ್ಮವೇ ಕರ್ತನನ್ನು ಕೊಂಡಾಡು
-Em      C       D
-ಆತನ ಪವಿತ್ರ ನಾಮವನ್ನು
-C       Em      C   D   Em
-ಹೊಸ ಗೀತೆಯ ಹಾಡಿ ಕೊಂಡಾಡು
-C           D        G
-ಕರ್ತನ ಪವಿತ್ರ ನಾಮವ`,
-    englishLyrics: `G       C         G         D
-Bless the Lord, O my soul, O my soul
-Em      C       D
-Worship His holy name
-C       Em      C   D   Em
-Sing like never before, O my soul
-C           D        G
-I'll worship Your holy name`,
-    lyricsText: `G       C         G         D
-Bless the Lord, O my soul, O my soul`,
-    lyricsImage: null,
-    createdAt: new Date().toISOString()
+// Pre-seeded songs loaded from server/data/songs.json (contains all 50 authentic Kannada Christian songs)
+let defaultSeedSongs = [];
+try {
+  const seedFile = path.join(DATA_DIR, 'songs.json');
+  if (fs.existsSync(seedFile)) {
+    defaultSeedSongs = JSON.parse(fs.readFileSync(seedFile, 'utf-8'));
   }
-];
+} catch (e) {
+  console.warn('Could not read seed songs.json:', e);
+}
 
 function sortSongsKannadaFirst(songsList) {
   return [...songsList].sort((a, b) => {
@@ -266,11 +39,30 @@ function sortSongsKannadaFirst(songsList) {
 function loadSongs() {
   try {
     if (!fs.existsSync(SONGS_FILE)) {
-      fs.writeFileSync(SONGS_FILE, JSON.stringify(defaultSeedSongs, null, 2), 'utf-8');
+      if (defaultSeedSongs.length > 0) {
+        fs.writeFileSync(SONGS_FILE, JSON.stringify(defaultSeedSongs, null, 2), 'utf-8');
+      }
       return sortSongsKannadaFirst(defaultSeedSongs);
     }
     const data = fs.readFileSync(SONGS_FILE, 'utf-8');
     const parsed = JSON.parse(data);
+
+    // Auto-merge: If disk file has fewer songs than our 50-song seed file, merge missing songs
+    if (Array.isArray(parsed) && Array.isArray(defaultSeedSongs) && defaultSeedSongs.length > 0) {
+      const existingIds = new Set(parsed.map(s => s.id));
+      let merged = false;
+      for (const song of defaultSeedSongs) {
+        if (!existingIds.has(song.id)) {
+          parsed.push(song);
+          existingIds.add(song.id);
+          merged = true;
+        }
+      }
+      if (merged) {
+        console.log(`[Auto-merge] Added missing songs to ${SONGS_FILE}. Total now: ${parsed.length}`);
+        fs.writeFileSync(SONGS_FILE, JSON.stringify(parsed, null, 2), 'utf-8');
+      }
+    }
     return sortSongsKannadaFirst(parsed);
   } catch (err) {
     console.error('Error loading songs:', err);
